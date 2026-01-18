@@ -13,20 +13,36 @@ JST = timezone(timedelta(hours=9), 'JST')
 LAT = 41.7687
 LON = 140.7288
 
+def get_stats_from_hourly(hourly_data, start_hour, end_hour):
+    """指定した時間範囲の最高・最低気温と最大降水確率を算出"""
+    temps = hourly_data['temperature_2m'][start_hour:end_hour]
+    rains = hourly_data['precipitation_probability'][start_hour:end_hour]
+    codes = hourly_data['weather_code'][start_hour:end_hour]
+    
+    if not temps: return {"max": "-", "min": "-", "rain": "-", "code": 0}
+
+    # 最も頻出する天気コードを取得
+    most_common_code = max(set(codes), key=codes.count)
+
+    return {
+        "max": max(temps),
+        "min": min(temps),
+        "rain": max(rains),
+        "code": most_common_code
+    }
+
 def get_real_weather(date_obj):
-    """
-    Open-Meteo APIから函館の天気予報を取得する
-    """
+    """Open-Meteo APIから函館の天気予報を取得する"""
     date_str = date_obj.strftime('%Y-%m-%d')
-    # 1時間ごとの気温、降水確率、天気コードを取得
     url = f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&start_date={date_str}&end_date={date_str}"
     
     try:
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode())
-            
-            # 日次データ（メイン表示用）
             daily = data['daily']
+            hourly = data['hourly']
+            
+            # 全体
             main_weather = {
                 "max_temp": daily['temperature_2m_max'][0],
                 "min_temp": daily['temperature_2m_min'][0],
@@ -34,30 +50,13 @@ def get_real_weather(date_obj):
                 "code": daily['weather_code'][0]
             }
 
-            # 時間別データ（タイムライン用）の抽出
-            hourly = data['hourly']
-            
-            # 時間帯ごとのインデックス (0時始まり)
-            # 朝(5-11), 昼(11-16), 夜(16-24) の代表値（中間や平均）を取る簡易ロジック
-            
-            # 朝 (8時のデータを代表に)
-            morning = {
-                "temp": hourly['temperature_2m'][8],
-                "rain": hourly['precipitation_probability'][8],
-                "code": hourly['weather_code'][8]
-            }
-            # 昼 (13時のデータを代表に)
-            daytime = {
-                "temp": hourly['temperature_2m'][13],
-                "rain": hourly['precipitation_probability'][13],
-                "code": hourly['weather_code'][13]
-            }
-            # 夜 (19時のデータを代表に)
-            night = {
-                "temp": hourly['temperature_2m'][19],
-                "rain": hourly['precipitation_probability'][19],
-                "code": hourly['weather_code'][19]
-            }
+            # 時間帯ごとの統計データを算出
+            # 朝 (05:00 - 11:00)
+            morning = get_stats_from_hourly(hourly, 5, 11)
+            # 昼 (11:00 - 16:00)
+            daytime = get_stats_from_hourly(hourly, 11, 16)
+            # 夜 (16:00 - 24:00)
+            night = get_stats_from_hourly(hourly, 16, 24)
             
             return {"main": main_weather, "morning": morning, "daytime": daytime, "night": night}
 
@@ -89,26 +88,21 @@ def get_ai_advice(target_date, days_offset):
 
     try:
         model = get_model()
-        
-        # 日付文字列
         date_str = target_date.strftime('%Y年%m月%d日')
         weekday_str = ["月", "火", "水", "木", "金", "土", "日"][target_date.weekday()]
         full_date = f"{date_str} ({weekday_str})"
         
-        # ★ここで実況天気を取得！
         real_weather = get_real_weather(target_date)
         
-        # AIへの天気情報インプット作成
+        # 実データをプロンプトに埋め込む
         if real_weather:
             w_info = f"""
-            【実況天気予報データ】
+            【実況天気予報データ (函館)】
             全体: 最高{real_weather['main']['max_temp']}℃ / 最低{real_weather['main']['min_temp']}℃ / 降水確率{real_weather['main']['rain_prob']}%
-            朝(5-11): 気温{real_weather['morning']['temp']}℃ / 降水{real_weather['morning']['rain']}% / 天気コード{real_weather['morning']['code']}
-            昼(11-16): 気温{real_weather['daytime']['temp']}℃ / 降水{real_weather['daytime']['rain']}% / 天気コード{real_weather['daytime']['code']}
-            夜(16-24): 気温{real_weather['night']['temp']}℃ / 降水{real_weather['night']['rain']}% / 天気コード{real_weather['night']['code']}
-            ※天気コード: 0=晴, 1-3=曇, 50番台60番台=雨, 70番台=雪
+            朝(05-11): 最高{real_weather['morning']['max']}℃ / 最低{real_weather['morning']['min']}℃ / 降水{real_weather['morning']['rain']}%
+            昼(11-16): 最高{real_weather['daytime']['max']}℃ / 最低{real_weather['daytime']['min']}℃ / 降水{real_weather['daytime']['rain']}%
+            夜(16-24): 最高{real_weather['night']['max']}℃ / 最低{real_weather['night']['min']}℃ / 降水{real_weather['night']['rain']}%
             """
-            # メインの天気を日本語化しておく
             main_condition = get_weather_label(real_weather['main']['code'])
         else:
             w_info = "天気データ取得失敗。今の時期の函館の天気を推測してください。"
@@ -121,7 +115,7 @@ def get_ai_advice(target_date, days_offset):
         あなたは函館の観光コンサルタントAIです。
         {timing_text}である「{full_date}」の函館の観光需要予測データを作成してください。
         
-        絶対に以下の実況天気予報に基づいてアドバイスを行ってください。
+        必ず以下の実況天気予報に基づいてアドバイスを行ってください。
         {w_info}
         
         以下のJSON形式で出力してください（Markdown記号なし）。
@@ -129,37 +123,30 @@ def get_ai_advice(target_date, days_offset):
             "date": "{full_date}",
             "rank": "S, A, B, Cのいずれか",
             "weather_overview": {{
-                "condition": "{main_condition}などの天気概況",
+                "condition": "{main_condition}などの天気概況（15文字以内）",
                 "high": "{real_weather['main']['max_temp'] if real_weather else '--'}℃",
                 "low": "{real_weather['main']['min_temp'] if real_weather else '--'}℃",
                 "rain": "{real_weather['main']['rain_prob'] if real_weather else '--'}%"
             }},
             "timeline": {{
                 "morning": {{
-                    "period": "05:00-11:00",
                     "weather": "天気概況",
-                    "temp": "{real_weather['morning']['temp'] if real_weather else '--'}℃",
+                    "high": "{real_weather['morning']['max'] if real_weather else '--'}℃",
+                    "low": "{real_weather['morning']['min'] if real_weather else '--'}℃",
                     "rain": "{real_weather['morning']['rain'] if real_weather else '--'}%",
-                    "advice": {{
-                        "taxi": "一言アドバイス",
-                        "restaurant": "一言アドバイス",
-                        "hotel": "一言アドバイス",
-                        "shop": "一言アドバイス",
-                        "logistics": "一言アドバイス",
-                        "conveni": "一言アドバイス"
-                    }}
+                    "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "..." }}
                 }},
                 "daytime": {{
-                    "period": "11:00-16:00",
                     "weather": "天気概況",
-                    "temp": "{real_weather['daytime']['temp'] if real_weather else '--'}℃",
+                    "high": "{real_weather['daytime']['max'] if real_weather else '--'}℃",
+                    "low": "{real_weather['daytime']['min'] if real_weather else '--'}℃",
                     "rain": "{real_weather['daytime']['rain'] if real_weather else '--'}%",
                     "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "..." }}
                 }},
                 "night": {{
-                    "period": "16:00-24:00",
                     "weather": "天気概況",
-                    "temp": "{real_weather['night']['temp'] if real_weather else '--'}℃",
+                    "high": "{real_weather['night']['max'] if real_weather else '--'}℃",
+                    "low": "{real_weather['night']['min'] if real_weather else '--'}℃",
                     "rain": "{real_weather['night']['rain'] if real_weather else '--'}%",
                     "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "..." }}
                 }}
@@ -175,11 +162,9 @@ def get_ai_advice(target_date, days_offset):
         print(f"❌ エラー ({full_date}): {e}")
         return None
 
-# --- メイン処理 ---
 if __name__ == "__main__":
     today = datetime.now(JST)
     print(f"🦅 Eagle Eye 起動: {today.strftime('%Y/%m/%d')}")
-    
     all_data = []
     for i in range(3):
         target_date = today + timedelta(days=i)
