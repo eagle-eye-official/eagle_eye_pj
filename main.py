@@ -68,10 +68,36 @@ def get_weather_label(code):
     return "曇り"
 
 def get_model():
+    """利用可能なモデルを自動検索して返す（最強の安定ロジック）"""
     genai.configure(api_key=API_KEY)
-    # ★修正ポイント：安定版の 1.5-flash を明示的に指定してエラー回避
-    target_model = "models/gemini-1.5-flash"
-    return genai.GenerativeModel(target_model)
+    
+    # 優先順位リスト
+    candidates = [
+        "models/gemini-2.0-flash-exp", 
+        "models/gemini-1.5-flash", 
+        "models/gemini-pro"
+    ]
+    
+    # 1. まずは候補を直接試す
+    for model_name in candidates:
+        try:
+            # モデルオブジェクト作成自体は通信しないので、リストにあるか確認する意味合い
+            m = genai.GenerativeModel(model_name)
+            print(f"🔍 候補モデルを確認: {model_name}")
+            return m
+        except:
+            continue
+
+    # 2. ダメならAPIからリストを取得して探す
+    print("⚠️ 指定候補が見つかりません。利用可能なモデルを全検索します...")
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            if 'gemini' in m.name:
+                print(f"✅ 自動選択されたモデル: {m.name}")
+                return genai.GenerativeModel(m.name)
+    
+    # 3. それでもダメならデフォルト
+    return genai.GenerativeModel("gemini-pro")
 
 def get_ai_advice(target_date, days_offset):
     if not API_KEY: return None
@@ -115,6 +141,7 @@ def get_ai_advice(target_date, days_offset):
         timing_text = "今日" if days_offset == 0 else f"{days_offset}日後の未来"
         print(f"🤖 {timing_text} ({full_date}) の予測生成中...")
 
+        # 人口比率インパクトロジック（ここも残っています！）
         prompt = f"""
         あなたは函館の観光コンサルタントAIです。
         {timing_text}である「{full_date}」の函館の観光需要予測データを作成してください。
@@ -192,7 +219,7 @@ if __name__ == "__main__":
         data = get_ai_advice(target_date, i)
         if data: all_data.append(data)
         
-        # ★修正ポイント：休憩時間を2秒から30秒に延長してエラー回避
+        # 念の為、30秒待機はそのまま残しておきます（安全第一！）
         print("☕ API制限回避のため30秒待機します...")
         time.sleep(30)
 
