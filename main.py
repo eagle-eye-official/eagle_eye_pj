@@ -67,9 +67,40 @@ def get_weather_label(code):
     return "曇り"
 
 def get_model():
+    """利用可能なモデルを自動検索して返す"""
     genai.configure(api_key=API_KEY)
-    # ★修正: エラー回避のため、安定版の1.5-flashを固定で使用
-    return genai.GenerativeModel("gemini-1.5-flash")
+    print("🔍 利用可能なモデルを検索中...")
+    
+    target_model_name = None
+    
+    # 利用可能なモデル一覧を取得
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                # 1.5 Flash を最優先で探す
+                if 'gemini-1.5-flash' in m.name:
+                    target_model_name = m.name
+                    break
+        
+        # Flashがなければ Pro を探す
+        if not target_model_name:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    if 'gemini-pro' in m.name:
+                        target_model_name = m.name
+                        break
+        
+        # それでもなければ指定なし（ライブラリのデフォルトに任せるが、通常はここで決まる）
+        if not target_model_name:
+             target_model_name = "models/gemini-pro"
+
+        print(f"✅ モデル決定: {target_model_name}")
+        return genai.GenerativeModel(target_model_name)
+
+    except Exception as e:
+        print(f"⚠️ モデル検索エラー: {e}")
+        # 最終手段として文字列指定
+        return genai.GenerativeModel("models/gemini-pro")
 
 def get_ai_advice(target_date, days_offset):
     if not API_KEY: return None
@@ -98,7 +129,6 @@ def get_ai_advice(target_date, days_offset):
         timing_text = "今日" if days_offset == 0 else f"{days_offset}日後の未来"
         print(f"🤖 {timing_text} ({full_date}) の予測生成中...")
 
-        # イベント情報を抽出するプロンプト
         prompt = f"""
         あなたは函館の観光コンサルタントAIです。
         {timing_text}である「{full_date}」の函館の観光需要予測データを作成してください。
@@ -166,7 +196,6 @@ if __name__ == "__main__":
         data = get_ai_advice(target_date, i)
         if data: all_data.append(data)
         
-        # ★修正: 制限回避のため待機時間を10秒に延長
         print("⏳ API制限回避のため10秒待機...")
         time.sleep(10)
 
