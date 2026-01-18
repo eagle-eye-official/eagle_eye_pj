@@ -1,0 +1,44 @@
+name: Deploy Flutter Web App
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/deploy_web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: コードをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Flutterをセットアップ
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0' # Zappに近いバージョンを指定
+          channel: 'stable'
+
+      - name: 足りないファイルを自動生成 (魔法のコマンド)
+        run: |
+          flutter create . --platforms web
+          # Zappにはなかったwebフォルダをここで作らせます
+
+      - name: 依存関係をインストール
+        run: flutter pub get
+
+      - name: Webアプリとしてビルド (Build)
+        # 重要: eagle_eye_pj というリポジトリ名に合わせてパスを設定します
+        run: flutter build web --release --base-href "/eagle_eye_pj/"
+
+      - name: 公開 (Deploy to GitHub Pages)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
