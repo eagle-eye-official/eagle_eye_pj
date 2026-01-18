@@ -20,8 +20,6 @@ def get_stats_from_hourly(hourly_data, start_hour, end_hour):
     codes = hourly_data['weather_code'][start_hour:end_hour]
     
     if not temps: return {"max": "-", "min": "-", "rain": "-", "code": 0}
-
-    # 最も頻出する天気コードを取得
     most_common_code = max(set(codes), key=codes.count)
 
     return {
@@ -42,7 +40,6 @@ def get_real_weather(date_obj):
             daily = data['daily']
             hourly = data['hourly']
             
-            # 全体
             main_weather = {
                 "max_temp": daily['temperature_2m_max'][0],
                 "min_temp": daily['temperature_2m_min'][0],
@@ -50,12 +47,8 @@ def get_real_weather(date_obj):
                 "code": daily['weather_code'][0]
             }
 
-            # 時間帯ごとの統計データを算出
-            # 朝 (05:00 - 11:00)
             morning = get_stats_from_hourly(hourly, 5, 11)
-            # 昼 (11:00 - 16:00)
             daytime = get_stats_from_hourly(hourly, 11, 16)
-            # 夜 (16:00 - 24:00)
             night = get_stats_from_hourly(hourly, 16, 24)
             
             return {"main": main_weather, "morning": morning, "daytime": daytime, "night": night}
@@ -65,7 +58,6 @@ def get_real_weather(date_obj):
         return None
 
 def get_weather_label(code):
-    """WMO天気コードを日本語に変換"""
     if code == 0: return "快晴"
     if code in [1, 2, 3]: return "曇り"
     if code in [45, 48]: return "霧"
@@ -76,12 +68,13 @@ def get_weather_label(code):
 
 def get_model():
     genai.configure(api_key=API_KEY)
-    target_model = "models/gemini-2.5-flash"
+    # 最新モデルを優先的に使用
+    target_model = "models/gemini-2.0-flash-exp" # 最新があれば指定、なければ自動検索
     try:
+        genai.GenerativeModel(target_model)
         return genai.GenerativeModel(target_model)
     except:
-        target_model = 'gemini-1.5-flash'
-        return genai.GenerativeModel(target_model)
+        return genai.GenerativeModel("gemini-1.5-flash")
 
 def get_ai_advice(target_date, days_offset):
     if not API_KEY: return None
@@ -94,7 +87,6 @@ def get_ai_advice(target_date, days_offset):
         
         real_weather = get_real_weather(target_date)
         
-        # 実データをプロンプトに埋め込む
         if real_weather:
             w_info = f"""
             【実況天気予報データ (函館)】
@@ -105,28 +97,36 @@ def get_ai_advice(target_date, days_offset):
             """
             main_condition = get_weather_label(real_weather['main']['code'])
         else:
-            w_info = "天気データ取得失敗。今の時期の函館の天気を推測してください。"
+            w_info = "天気データ取得失敗。"
             main_condition = "不明"
 
         timing_text = "今日" if days_offset == 0 else f"{days_offset}日後の未来"
         print(f"🤖 {timing_text} ({full_date}) の予測生成中...")
 
+        # ★イベント情報を抽出するようにプロンプトを強化
         prompt = f"""
         あなたは函館の観光コンサルタントAIです。
         {timing_text}である「{full_date}」の函館の観光需要予測データを作成してください。
         
-        必ず以下の実況天気予報に基づいてアドバイスを行ってください。
+        気象データ:
         {w_info}
         
         以下のJSON形式で出力してください（Markdown記号なし）。
+        特に「events」フィールドには、この時期の函館で開催される可能性が高いイベントや、天候による交通規制の可能性（「雪のため速度規制の恐れ」など）を具体的に予測して記述してください。
+
         {{
             "date": "{full_date}",
             "rank": "S, A, B, Cのいずれか",
             "weather_overview": {{
-                "condition": "{main_condition}などの天気概況（15文字以内）",
+                "condition": "{main_condition}などの天気概況",
                 "high": "{real_weather['main']['max_temp'] if real_weather else '--'}℃",
                 "low": "{real_weather['main']['min_temp'] if real_weather else '--'}℃",
                 "rain": "{real_weather['main']['rain_prob'] if real_weather else '--'}%"
+            }},
+            "events_info": {{
+                "event_name": "イベント名や特記事項（なければ「特になし」）",
+                "time_info": "開催時間や注意すべき時間帯",
+                "traffic_warning": "交通規制や道路状況の警告（例：路面凍結による渋滞予測）"
             }},
             "timeline": {{
                 "morning": {{
