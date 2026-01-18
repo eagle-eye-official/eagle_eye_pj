@@ -4,15 +4,15 @@ import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
 import google.generativeai as genai
-from google.api_core import exceptions
 
 # --- 設定 ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# 函館の座標 (Open-Meteo用)
+# 函館の基礎データ
 LAT = 41.7687
 LON = 140.7288
+HAKODATE_POPULATION = 243000  # 函館市の人口（約24.3万人）
 
 def get_stats_from_hourly(hourly_data, start_hour, end_hour):
     """指定した時間範囲の最高・最低気温と最大降水確率を算出"""
@@ -68,52 +68,14 @@ def get_weather_label(code):
     return "曇り"
 
 def get_model():
-    """利用可能なモデルの中からFlashを優先的に探して返す"""
     genai.configure(api_key=API_KEY)
-    print("🔍 利用可能なモデルを検索中...")
-    
-    target_model_name = None
-    flash_models = []
-    
+    # 最新モデルを指定（推論能力が高いモデル推奨）
+    target_model = "models/gemini-2.0-flash-exp"
     try:
-        # 全モデルをリストアップしてログに出す（デバッグ用）
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                print(f"  - 発見: {m.name}")
-                if 'flash' in m.name.lower():
-                    flash_models.append(m.name)
-        
-        # Flashが含まれるモデルがあれば、その最初のやつを使う
-        if flash_models:
-            target_model_name = flash_models[0]
-        else:
-            # なければPro系を探す
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods and 'pro' in m.name.lower():
-                    target_model_name = m.name
-                    break
-        
-        # それでもなければデフォルト
-        if not target_model_name:
-             target_model_name = "models/gemini-pro"
-
-        print(f"✅ 決定したモデル: {target_model_name}")
-        return genai.GenerativeModel(target_model_name)
-
-    except Exception as e:
-        print(f"⚠️ モデル検索エラー: {e}")
-        return genai.GenerativeModel("models/gemini-pro")
-
-def generate_with_retry(model, prompt):
-    """エラーが出たら一度だけ再挑戦する"""
-    try:
-        return model.generate_content(prompt)
-    except exceptions.ResourceExhausted:
-        print("⚠️ API制限(429)発生。30秒待機してリトライします...")
-        time.sleep(30)
-        return model.generate_content(prompt)
-    except Exception as e:
-        raise e
+        genai.GenerativeModel(target_model)
+        return genai.GenerativeModel(target_model)
+    except:
+        return genai.GenerativeModel("gemini-1.5-flash")
 
 def get_ai_advice(target_date, days_offset):
     if not API_KEY: return None
@@ -121,11 +83,27 @@ def get_ai_advice(target_date, days_offset):
     try:
         model = get_model()
         date_str = target_date.strftime('%Y年%m月%d日')
-        weekday_str = ["月", "火", "水", "木", "金", "土", "日"][target_date.weekday()]
+        weekday_int = target_date.weekday()
+        weekday_str = ["月", "火", "水", "木", "金", "土", "日"][weekday_int]
         full_date = f"{date_str} ({weekday_str})"
         
         real_weather = get_real_weather(target_date)
         
+        # 曜日別の心理的バイアス
+        psychology_prompt = ""
+        if weekday_int == 6: # 日曜日
+            psychology_prompt = """
+            【重要：日曜日の心理的バイアス】
+            ・日曜日は「翌日から仕事」のため、地元住民の夜間の外出は極端に減ります。
+            ・観光客も日曜日の午後には帰路につくため、夜の飲食・宿泊需要は土曜日に比べて大幅に下がります。
+            ・イベントがあっても「翌日仕事」の影響を考慮し、需要ランクは辛め（低め）に見積もってください。
+            """
+        elif weekday_int == 5: # 土曜日
+            psychology_prompt = """
+            【重要：土曜日の傾向】
+            ・翌日が休みのため、夜遅くまで地元住民や観光客の動きが活発です。夜間需要は高めです。
+            """
+
         if real_weather:
             w_info = f"""
             【実況天気予報データ (函館)】
@@ -142,16 +120,28 @@ def get_ai_advice(target_date, days_offset):
         timing_text = "今日" if days_offset == 0 else f"{days_offset}日後の未来"
         print(f"🤖 {timing_text} ({full_date}) の予測生成中...")
 
+        # ★ここが進化ポイント：人口比率による科学的ランク判定
         prompt = f"""
         あなたは函館の観光コンサルタントAIです。
         {timing_text}である「{full_date}」の函館の観光需要予測データを作成してください。
         
+        【判断ロジック：人口比率インパクト】
+        函館市の人口は約 {HAKODATE_POPULATION} 人です。
+        イベントがある場合、過去のデータから推定来場者数を割り出し、以下の基準でランクを決定してください。
+        
+        * ランクS (激混み): 推定来場者が人口の10%以上（約2.4万人以上）
+        * ランクA (混雑): 推定来場者が人口の5%以上（約1.2万人以上）
+        * ランクB (普通): 推定来場者が人口の1%以上、または通常の週末
+        * ランクC (閑散): それ以下、または平日・悪天候
+        ※ただし、日曜日の夜は上記「心理的バイアス」によりランクを1つ下げることを検討してください。
+
         気象データ:
         {w_info}
+
+        {psychology_prompt}
         
         以下のJSON形式で出力してください（Markdown記号なし）。
-        特に「events_info」には、この時期の函館で開催される可能性が高いイベントや、天候による交通規制の可能性（「雪のため速度規制の恐れ」など）を具体的に予測して記述してください。
-
+        
         {{
             "date": "{full_date}",
             "rank": "S, A, B, Cのいずれか",
@@ -162,9 +152,9 @@ def get_ai_advice(target_date, days_offset):
                 "rain": "{real_weather['main']['rain_prob'] if real_weather else '--'}%"
             }},
             "events_info": {{
-                "event_name": "イベント名や特記事項（なければ「特になし」）",
-                "time_info": "開催時間や注意すべき時間帯",
-                "traffic_warning": "交通規制や道路状況の警告（例：路面凍結による渋滞予測）"
+                "event_name": "イベント名（なければ「特になし」）",
+                "time_info": "過去の規模感（例：例年3万人が来場）や時間",
+                "traffic_warning": "人口比率{HAKODATE_POPULATION}人に対するインパクトや交通規制の警告"
             }},
             "timeline": {{
                 "morning": {{
@@ -192,9 +182,7 @@ def get_ai_advice(target_date, days_offset):
         }}
         """
         
-        # リトライ機能付きで生成を実行
-        response = generate_with_retry(model, prompt)
-        
+        response = model.generate_content(prompt)
         text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
 
@@ -210,9 +198,7 @@ if __name__ == "__main__":
         target_date = today + timedelta(days=i)
         data = get_ai_advice(target_date, i)
         if data: all_data.append(data)
-        
-        print("⏳ API制限回避のため20秒待機...")
-        time.sleep(20)
+        time.sleep(2)
 
     if len(all_data) > 0:
         with open("eagle_eye_data.json", "w", encoding="utf-8") as f:
