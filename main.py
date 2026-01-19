@@ -9,18 +9,44 @@ import google.generativeai as genai
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# ★テスト用：エリアを1つに絞る
+# ★全エリア解放（函館＋大阪5エリア）
 TARGET_AREAS = {
+    "hakodate": {
+        "name": "北海道 函館市",
+        "lat": 41.7687, "lon": 140.7288,
+        "population": 243000,
+        "feature": "日本有数の観光都市。夜景と海鮮が人気。異国情緒あふれる街並み。"
+    },
     "osaka_hokusetsu": {
         "name": "大阪 北摂 (豊中・新大阪)",
         "lat": 34.7809, "lon": 135.4624,
         "population": 400000,
-        "feature": "伊丹空港や新大阪駅があり移動拠点となる。落ち着いた住宅街も多い。"
+        "feature": "伊丹空港や新大阪駅があり移動拠点となる。治安が良く落ち着いた住宅街も多い。"
+    },
+    "osaka_kita": {
+        "name": "大阪 キタ (梅田)",
+        "lat": 34.7025, "lon": 135.4959,
+        "population": 1000000, # 流動人口含む
+        "feature": "西日本最大のビジネス街兼繁華街。グランフロントや地下街が発達。"
+    },
+    "osaka_minami": {
+        "name": "大阪 ミナミ (難波)",
+        "lat": 34.6655, "lon": 135.5011,
+        "population": 500000,
+        "feature": "インバウンド人気No.1。道頓堀、グリコ、食い倒れの街。夜の需要が高い。"
+    },
+    "osaka_bay": {
+        "name": "大阪 ベイエリア (USJ)",
+        "lat": 34.6654, "lon": 135.4323,
+        "population": 100000,
+        "feature": "USJや海遊館がある海沿いのエリア。風の影響を受けやすく、イベント依存度が高い。"
+    },
+    "osaka_tennoji": {
+        "name": "大阪 天王寺・阿倍野",
+        "lat": 34.6477, "lon": 135.5135,
+        "population": 300000,
+        "feature": "あべのハルカスと通天閣(新世界)が共存するエリア。新旧の文化が入り混じる。"
     }
-    # 他のエリアは一旦コメントアウト（テスト成功後に戻します）
-    # "hakodate": { ... },
-    # "osaka_kita": { ... },
-    # ...
 }
 
 # --- 天気取得関数 ---
@@ -36,7 +62,7 @@ def get_real_weather(lat, lon, date_obj):
     date_str = date_obj.strftime('%Y-%m-%d')
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&start_date={date_str}&end_date={date_str}"
     try:
-        with urllib.request.urlopen(url, timeout=10) as response: # timeout追加
+        with urllib.request.urlopen(url, timeout=10) as response:
             data = json.loads(response.read().decode())
             daily = data['daily']
             hourly = data['hourly']
@@ -63,7 +89,7 @@ def get_weather_label(code):
     if code >= 95: return "雷雨"
     return "曇り"
 
-# --- AI生成 ---
+# --- AI生成 (不屈の再挑戦ロジック) ---
 def get_ai_advice(area_key, area_data, target_date, days_offset):
     if not API_KEY: return None
     genai.configure(api_key=API_KEY)
@@ -92,9 +118,10 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     {full_date}の需要予測データを作成してください。
     エリア特徴: {area_data['feature']}
     基準人口: 約{area_data['population']}人
-    ランク基準: S(人口10%超流入), A(5%超), B(週末並), C(閑散)。日曜夜は下げ推奨。
+    ランク基準: S(人口10%超流入/激混み), A(5%超/混雑), B(週末並), C(平日/閑散)。日曜夜はランク下げ推奨。
     気象: {w_info} ({main_condition})
     {psychology_prompt}
+    
     JSON出力のみ:
     {{
         "date": "{full_date}", "is_long_term": false, "rank": "S/A/B/C",
@@ -108,6 +135,7 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     }}
     """
     
+    # 安定モデルから順に試す
     candidates = ["gemini-1.5-flash", "gemini-pro"]
     for m in candidates:
         try:
@@ -115,12 +143,14 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
             res = model.generate_content(prompt)
             return json.loads(res.text.replace("```json", "").replace("```", "").strip())
         except Exception as e:
-            print(f"⚠️ {m} エラー: {e}", flush=True) # エラー詳細を表示
+            print(f"⚠️ {m} エラー: {e} -> 次のモデルを試行", flush=True)
             time.sleep(2)
             continue
+    
+    print("❌ 全モデルで生成失敗", flush=True)
     return None
 
-# --- 簡易予測 ---
+# --- 簡易予測 (長期用) ---
 def get_simple_forecast(target_date):
     date_str = target_date.strftime('%Y年%m月%d日')
     weekday_str = ["月", "火", "水", "木", "金", "土", "日"][target_date.weekday()]
@@ -138,7 +168,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye テスト起動: {today.strftime('%Y/%m/%d')}", flush=True) # 即時表示
+    print(f"🦅 Eagle Eye 全国版 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -148,12 +178,14 @@ if __name__ == "__main__":
         
         for i in range(90):
             target_date = today + timedelta(days=i)
+            
+            # 直近3日はAI、それ以降は簡易
             if i < 3:
                 data = get_ai_advice(area_key, area_data, target_date, i)
                 if data:
                     area_forecasts.append(data)
                     print("☕ AI休憩(5秒)...", flush=True)
-                    time.sleep(5)
+                    time.sleep(5) # API制限回避のための休憩
                 else:
                     area_forecasts.append(get_simple_forecast(target_date))
             else:
