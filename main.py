@@ -89,10 +89,26 @@ def get_weather_label(code):
     if code >= 95: return "雷雨"
     return "曇り"
 
-# --- AI生成 (ハイブリッド対応版) ---
+# ★ケイスケさんの成功コードを実装
+def get_model():
+    genai.configure(api_key=API_KEY)
+    # 2026年時点の最新モデルを指定（models/プレフィックス付き）
+    target_model = "models/gemini-2.5-flash" 
+    try:
+        print(f"try model: {target_model}", flush=True)
+        return genai.GenerativeModel(target_model)
+    except:
+        # ダメなら安定版へフォールバック
+        print("fallback to 1.5-flash", flush=True)
+        target_model = 'models/gemini-1.5-flash'
+        return genai.GenerativeModel(target_model)
+
+# --- AI生成 ---
 def get_ai_advice(area_key, area_data, target_date, days_offset):
     if not API_KEY: return None
-    genai.configure(api_key=API_KEY)
+
+    # モデル取得
+    model = get_model()
     
     date_str = target_date.strftime('%Y年%m月%d日')
     weekday_int = target_date.weekday()
@@ -135,23 +151,12 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     }}
     """
     
-    # ★ここが重要：モデル自動切り替えロジック
     try:
-        # まずは最新のFlashに挑戦！
-        model = genai.GenerativeModel("gemini-1.5-flash")
         res = model.generate_content(prompt)
         return json.loads(res.text.replace("```json", "").replace("```", "").strip())
-        
     except Exception as e:
-        # 404(モデルが見つからない)などのエラーが出たら、即座にPro(旧型)に切り替え
-        print(f"⚠️ Flashモデルでの生成に失敗 ({e})。レガシーモデル(Pro)に切り替えます...", flush=True)
-        try:
-            model = genai.GenerativeModel("gemini-pro")
-            res = model.generate_content(prompt)
-            return json.loads(res.text.replace("```json", "").replace("```", "").strip())
-        except Exception as e2:
-            print(f"❌ レガシーモデルでも失敗: {e2}", flush=True)
-            return None
+        print(f"⚠️ 生成エラー: {e}", flush=True)
+        return None
 
 # --- 簡易予測 ---
 def get_simple_forecast(target_date):
@@ -171,7 +176,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye 全国版(Flash/Proハイブリッド) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye 全国版(ケイスケ式モデル選択) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -186,7 +191,8 @@ if __name__ == "__main__":
                 data = get_ai_advice(area_key, area_data, target_date, i)
                 if data:
                     area_forecasts.append(data)
-                    time.sleep(1) # 成功したら1秒待機
+                    # 課金済みなので高速回転。1秒だけマナーとして待つ。
+                    time.sleep(1) 
                 else:
                     print("⚠️ 生成失敗。簡易版を適用。", flush=True)
                     area_forecasts.append(get_simple_forecast(target_date))
