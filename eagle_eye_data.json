@@ -1,179 +1,1534 @@
-[
-  {
-    "date": "2026年01月18日 (日)",
-    "rank": "A",
-    "weather_overview": {
-      "condition": "晴れ間もあるが、一日を通して厳しい寒さ。夜間はごく稀に雪の可能性あり。",
-      "high": "-0.1℃",
-      "low": "-2.3℃",
-      "rain": "3%"
-    },
-    "events_info": {
-      "event_name": "はこだてイルミネーション、五稜星の夢、湯の川温泉街のライトアップ",
-      "time_info": "はこだてイルミネーション、五稜星の夢は日没後〜22:00頃まで。湯の川温泉街のライトアップは夕方〜夜間。",
-      "traffic_warning": "終日氷点下のため、市内全域で路面凍結の可能性が高いです。特に日陰、橋の上、坂道は滑りやすいため、自動車・歩行者ともに最大限の注意が必要です。速度規制や冬用タイヤ（スタッドレスタイヤ）の着用は必須となります。公共交通機関（市電、バス）も遅延する可能性がありますので、時間に余裕を持った行動を推奨します。"
-    },
-    "timeline": {
-      "morning": {
-        "weather": "晴れ時々曇り、厳しい寒さ",
-        "high": "-1.2℃",
-        "low": "-2.0℃",
-        "rain": "0%",
-        "advice": {
-          "taxi": "早朝便の空港送迎や朝市への移動で需要が高まります。路面凍結によるスリップ事故防止のため、安全運転を徹底し、時間に余裕を持った運行をお願いします。",
-          "restaurant": "函館朝市周辺の海鮮丼店や、温かいモーニングを提供する喫茶店が人気です。来店客には、温かい飲み物の提供や、店内を暖かく保つことを心がけてください。",
-          "hotel": "チェックアウト業務と朝食提供が中心です。温かいお茶やコーヒーのサービスを強化し、外出するお客様には防寒対策や路面凍結への注意を促しましょう。",
-          "shop": "朝市内の土産物店や、早朝から営業している菓子店などがターゲットです。使い捨てカイロや手袋などの防寒グッズ、温かいテイクアウトドリンクの販売も効果的です。",
-          "logistics": "路面凍結による遅延を避けるため、早めの出発と慎重な運転が求められます。配送ルートの凍結状況を事前に確認し、時間に余裕を持った計画を立てましょう。",
-          "conveni": "温かい飲食物（おでん、肉まん、ホットスナック、コーヒー）の売れ行きが好調です。使い捨てカイロや簡易的な滑り止めグッズの品揃えも強化してください。"
-        }
+{
+  "osaka_hokusetsu": [
+    {
+      "date": "2026年01月19日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
       },
-      "daytime": {
-        "weather": "晴れ間もあるが、厳しい寒さ",
-        "high": "-0.1℃",
-        "low": "-1.0℃",
-        "rain": "0%",
-        "advice": {
-          "taxi": "主要観光地（五稜郭、元町、金森赤レンガ倉庫群、函館山ロープウェイ駅）への移動が増加します。特に観光客は慣れない道での運転が難しいため、丁寧な案内と安全運転を心がけてください。",
-          "restaurant": "ランチタイムは、温かいラーメン、スープカレー、海鮮鍋など、体が温まるメニューが人気です。座席を暖かく保ち、快適な食事空間を提供することが重要です。",
-          "hotel": "チェックイン準備や日帰り入浴施設の利用が増える可能性があります。暖房を十分に効かせ、ロビーでは温かい飲み物の提供サービスも喜ばれます。",
-          "shop": "観光地周辺の土産物店やデパートで、防寒具、温かいお菓子、土産物の需要があります。屋内でゆっくり買い物ができる施設が好まれる傾向にあります。",
-          "logistics": "日中も路面凍結に注意が必要です。特に日陰や橋の上は凍結が残りやすいため、常に安全速度での走行を徹底してください。緊急配送の場合でも無理な運行は避けるべきです。",
-          "conveni": "観光客向けの軽食、飲み物、お菓子に加え、手袋や耳あてなどの防寒小物の需要が続きます。ATM利用の需要も高まりますので、現金の補充を忘れずに行ってください。"
-        }
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
       },
-      "night": {
-        "weather": "曇り、引き続き厳しい寒さ。ごく稀に雪の可能性あり。",
-        "high": "-0.1℃",
-        "low": "-0.8℃",
-        "rain": "3%",
-        "advice": {
-          "taxi": "函館山夜景、はこだてイルミネーション、五稜星の夢などのライトアップスポットや、夕食後のホテルへの移動で需要がピークを迎えます。路面凍結が最も懸念される時間帯ですので、事前予約の推奨と、慎重かつ安全な運転を徹底してください。",
-          "restaurant": "ディナー需要が高まります。特に温かい鍋料理や郷土料理を提供する店舗は人気を集めます。事前予約客の増加が予測されるため、効率的な配膳と接客を心がけてください。",
-          "hotel": "宿泊客の夜景鑑賞後の帰館や、温泉施設の利用が活発になります。温かいおしぼりや飲み物のサービス、翌日の交通情報提供など、細やかな気配りが顧客満足度を高めます。",
-          "shop": "多くの店舗が閉店しますが、一部の土産物店は営業を続けます。特に金森赤レンガ倉庫周辺の店舗は夜景観光客で賑わう可能性があります。コンビニエンスストアの需要も高まります。",
-          "logistics": "夜間の物流は限られますが、緊急配送や夜間搬入を行う際は、路面凍結による危険性が高まるため、最大限の注意と、状況に応じた運行判断が求められます。積雪対策も視野に入れてください。",
-          "conveni": "温かい飲食物、アルコール類、夜食、風邪薬などの需要が増加します。夜間の外出者が滑らないよう、店舗入口周辺の除雪・除氷作業を徹底し、滑り止めマットの設置も検討してください。"
-        }
-      }
+      "timeline": null
+    },
+    {
+      "date": "2026年01月20日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月21日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月22日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月23日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月24日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月25日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月26日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月27日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月28日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月29日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月30日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年01月31日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月01日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月02日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月03日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月04日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月05日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月06日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月07日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月08日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月09日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月10日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月11日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月12日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月13日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月14日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月15日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月16日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月17日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月18日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月19日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月20日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月21日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月22日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月23日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月24日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月25日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月26日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月27日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年02月28日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月01日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月02日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月03日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月04日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月05日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月06日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月07日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月08日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月09日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月10日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月11日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月12日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月13日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月14日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月15日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月16日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月17日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月18日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月19日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月20日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月21日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月22日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月23日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月24日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月25日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月26日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月27日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月28日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月29日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月30日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年03月31日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月01日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月02日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月03日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月04日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月05日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月06日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月07日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月08日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月09日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月10日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月11日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月12日 (日)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月13日 (月)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月14日 (火)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月15日 (水)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月16日 (木)",
+      "is_long_term": true,
+      "rank": "C",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月17日 (金)",
+      "is_long_term": true,
+      "rank": "B",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
+    },
+    {
+      "date": "2026年04月18日 (土)",
+      "is_long_term": true,
+      "rank": "A",
+      "weather_overview": {
+        "condition": "予報待ち",
+        "high": "-",
+        "low": "-",
+        "rain": "-"
+      },
+      "events_info": {
+        "event_name": "ー",
+        "time_info": "",
+        "traffic_warning": ""
+      },
+      "timeline": null
     }
-  },
-  {
-    "date": "2026年01月19日 (月)",
-    "rank": "C",
-    "weather_overview": {
-      "condition": "日中から夜にかけて雪、路面凍結の恐れ",
-      "high": "0.3℃",
-      "low": "-2.0℃",
-      "rain": "88%"
-    },
-    "events_info": {
-      "event_name": "函館イルミネーション『はこだて光の万華鏡』継続中（夜間）",
-      "time_info": "はこだて光の万華鏡は日没後から22時頃まで。日中の降雪、夜間の路面凍結に注意。",
-      "traffic_warning": "日中から降雪により主要道路で積雪・路面凍結の恐れ。特に夜間は気温が氷点下となり、スリップ事故や交通渋滞が発生しやすい。速度規制や冬用タイヤ・チェーンの装着が必須。公共交通機関（市電・バス）にも遅延や運休の可能性。函館山ロープウェイは強風や視界不良により運休の可能性あり、事前の運行状況確認を強く推奨。"
-    },
-    "timeline": {
-      "morning": {
-        "weather": "くもり、一時雪",
-        "high": "-0.1℃",
-        "low": "-0.2℃",
-        "rain": "3%",
-        "advice": {
-          "taxi": "早朝の出勤・通学需要。未明の降雪や凍結に注意し、安全運転を最優先してください。スタッドレスタイヤは必須です。",
-          "restaurant": "朝食需要は通常通り見込まれます。ランチに向けて仕込みを。平日のため大規模な混雑は予想されません。",
-          "hotel": "チェックアウト業務が中心。降雪予報を伝え、交通情報や交通手段について情報提供を強化してください。",
-          "shop": "午前中は降雪が少ないため、屋内の市場や土産物店は通常営業。路面凍結対策グッズや温かい飲み物の需要を確認ください。",
-          "logistics": "早朝は路面凍結に最大限の注意が必要です。配送ルートの積雪・凍結状況を事前に確認し、遅延を想定した計画を。",
-          "conveni": "出勤・通学客の利用がメイン。温かい飲み物や軽食、新聞などの補充を忘れずに。路面の凍結防止対策も実施してください。"
-        }
-      },
-      "daytime": {
-        "weather": "雪",
-        "high": "0.3℃",
-        "low": "-0.1℃",
-        "rain": "58%",
-        "advice": {
-          "taxi": "降雪により観光客や地元住民の移動手段として需要が増加する可能性があります。主要観光地や駅周辺での待機を強化してください。",
-          "restaurant": "平日の降雪で客足は鈍る可能性があります。テイクアウトやデリバリーの強化、温かい鍋物などの特別メニューで集客を試みてください。",
-          "hotel": "チェックイン客への交通状況や観光スポットの営業情報提供を重点的に。館内での過ごし方や温泉の利用を促しましょう。",
-          "shop": "屋外観光が困難なため、金森赤レンガ倉庫群、函館朝市、百貨店などの屋内型施設へ人流が集中する可能性があります。雪対策グッズの販売を強化してください。",
-          "logistics": "降雪による視界不良、路面状況の悪化が懸念されます。配送遅延の可能性を顧客に速やかに連絡し、安全運転を徹底してください。",
-          "conveni": "温かい飲食物、手袋、傘、滑り止めなど防寒・雪対策グッズの需要増が見込まれます。品切れがないよう補充を。"
-        }
-      },
-      "night": {
-        "weather": "雪、路面凍結",
-        "high": "-0.1℃",
-        "low": "-2.0℃",
-        "rain": "88%",
-        "advice": {
-          "taxi": "降雪と路面凍結で交通機関の乱れが予想され、最も需要が高まる時間帯です。特に駅や繁華街周辺での待機を強化し、予約需要にも対応できるよう準備を。",
-          "restaurant": "悪天候により集客はさらに落ち込む可能性があります。デリバリーや地元客向けのキャンペーン、温かい飲み物や食事で暖をとる場所としての提供を検討してください。",
-          "hotel": "館内レストランやバーの利用を積極的に促進し、安全な館内での滞在を提案。翌日の交通情報や周辺の路面状況を丁寧に案内してください。",
-          "shop": "主要観光地の店舗は閉店準備。コンビニエンスストアは引き続き、夜間の降雪や凍結に備えた商品（滑り止め、カイロ、非常食など）の準備と品出しを。",
-          "logistics": "夜間の配送は非常に困難が予想されます。積雪・凍結状況によっては配送計画の見直しや延期も検討し、ドライバーの安全を最優先してください。",
-          "conveni": "深夜帯の急な降雪・凍結に備え、路面状況に応じた商品（滑り止め、使い捨てカイロ、簡易スコップなど）の在庫を確保。店舗周辺の除雪作業も重要です。"
-        }
-      }
-    }
-  },
-  {
-    "date": "2026年01月20日 (火)",
-    "rank": "C",
-    "weather_overview": {
-      "condition": "一日を通して氷点下の真冬日。朝から午前中にかけて雪が降りやすく、路面凍結が深刻。非常に寒い一日となるでしょう。",
-      "high": "-1.6℃",
-      "low": "-6.7℃",
-      "rain": "78%"
-    },
-    "events_info": {
-      "event_name": "函館の冬フェスティバル (イルミネーション継続中)、温泉・屋内施設への需要増",
-      "time_info": "イルミネーション点灯時間：日没後～22:00頃。日中は屋内施設、夜はイルミネーションが主な観光需要。悪天候による公共交通機関の遅延に終日注意。",
-      "traffic_warning": "函館市内の主要道路（特に坂道や日陰）は積雪・路面凍結が深刻化し、スリップ事故や渋滞の発生が予測されます。函館山へのアクセス道路（登山道、ロープウェイ含む）は、積雪状況により運休や閉鎖の可能性が高いです。市電・路線バスも遅延や運休が発生する恐れがあります。マイカー利用者はスタッドレスタイヤや冬用タイヤの装着が必須。速度規制やチェーン規制の可能性もあります。時間に余裕を持った移動計画が必要です。"
-    },
-    "timeline": {
-      "morning": {
-        "weather": "早朝から雪が断続的に降り、積雪が増える可能性があります。路面は凍結し、非常に滑りやすくなります。強い冷え込みが続きます。",
-        "high": "-4.3℃",
-        "low": "-6.7℃",
-        "rain": "25%",
-        "advice": {
-          "taxi": "早朝の降雪と路面凍結により、タクシーの需要は高まりますが、安全運転のため配車に遅れが生じる可能性があります。事前予約を促し、乗車前の路面状況や所要時間の説明を徹底してください。",
-          "restaurant": "観光客の動きは鈍いですが、地元住民の朝食や温かいコーヒー需要が見込まれます。店内は暖かく保ち、温かいメニューを充実させてください。",
-          "hotel": "宿泊客の出発時、交通機関の乱れに備えた情報提供や、雪かき・凍結防止対策を徹底してください。ロビーや共用スペースの暖房も十分に行い、快適さを保つことが重要です。",
-          "shop": "防寒具や滑り止め、温かい飲み物などの需要が高まります。開店前の除雪・凍結防止を徹底し、安全に配慮してください。路面状況悪化による客足の減少に備え、オンライン販売やデリバリーサービスの活用も検討してください。",
-          "logistics": "朝の降雪と路面凍結により、配送ルートや時間帯に大幅な遅延が生じる可能性があります。全車両スタッドレスタイヤ装着を必須とし、ドライバーの安全確保を最優先に。午前中の配達は特に時間に余裕を持たせてください。",
-          "conveni": "ホットドリンク、温かい弁当・惣菜、カップ麺などの需要が高まります。また、凍結防止剤、滑り止め砂、使い捨てカイロなどの防寒・安全対策用品も品切れにならないよう在庫を確認してください。"
-        }
-      },
-      "daytime": {
-        "weather": "雪は次第に弱まるか止む見込みですが、気温は引き続き氷点下で非常に寒く、路面凍結は続きます。風も冷たく体感温度はさらに低く感じるでしょう。",
-        "high": "-5.0℃",
-        "low": "-6.3℃",
-        "rain": "10%",
-        "advice": {
-          "taxi": "降雪が止んでも路面状況は依然として悪いため、安全運転を最優先に。主要観光地や商業施設周辺での待機場所は、凍結していない安全な場所を選びましょう。電話での予約が多くなる傾向です。",
-          "restaurant": "ランチタイムは、暖かい店内での食事を求める観光客や地元客の需要が見込まれます。地元の温かい食材を使ったメニューや、汁物、鍋物などをアピールすると良いでしょう。暖房の効いた快適な空間を提供してください。",
-          "hotel": "日中は外出を控える宿泊客のために、館内レストランやカフェ、温泉などの施設利用を促す情報提供が効果的です。雪景色を眺められる客室は人気が高まるかもしれません。",
-          "shop": "屋外での観光が厳しい分、屋内施設や商業施設での購買意欲が高まる可能性があります。防寒グッズ、温かい土産物、函館らしいお菓子などが人気を集めるでしょう。路面凍結による足元の悪さに配慮し、床の清掃・乾燥を徹底してください。",
-          "logistics": "路面状況は依然として悪く、慎重な運転が求められます。午後の配送においても、遅延の可能性を考慮し、顧客への事前連絡やルートの再確認を怠らないでください。主要道路以外の路地での作業は特に注意が必要です。",
-          "conveni": "ランチ需要に加えて、体が温まる食品（肉まん、おでん、ホットスナック）や温かい飲み物の販売が好調と見込まれます。急な積雪に備え、手袋やカイロなどの防寒用品の補充を忘れないでください。"
-        }
-      },
-      "night": {
-        "weather": "雪はほとんど降らず、星空が見える可能性もありますが、厳しい冷え込みが続きます。日中に溶けた雪が再び凍結し、路面凍結はさらに深刻化するでしょう。",
-        "high": "-3.8℃",
-        "low": "-4.8℃",
-        "rain": "3%",
-        "advice": {
-          "taxi": "夜間の路面凍結は昼間よりも視認性が悪く危険が増します。慎重な運転と、予約客への移動時間に関する丁寧な説明が求められます。函館山からの夜景鑑賞客の需要は見込みが薄いため、駅やホテル、繁華街での待機が中心となるでしょう。",
-          "restaurant": "イルミネーションを見に外出する観光客は限られますが、温かい食事を求めて来店する層はいます。暖色系の照明や温かい内装で居心地の良い空間を提供し、地元の海鮮料理や温かいドリンク、アルコール類を充実させてください。団体客は期待できませんが、少人数グループやカップル層に焦点を当てましょう。",
-          "hotel": "夜間外出を控える宿泊客のために、館内での過ごし方を提案（ルームサービス、バー、大浴場など）。凍結による転倒事故防止のため、エントランスや駐車場周りの安全管理を徹底してください。翌日の交通情報提供も重要です。",
-          "shop": "夜間の客足はさらに減少する可能性が高いです。ホテル内売店や駅構内などの施設を除き、一般の店舗は早めの閉店も検討されるでしょう。防寒具や温かい飲み物、お土産の需要は限定的になります。",
-          "logistics": "夜間の路面凍結は特に危険が伴います。最終便の配送や夜間作業を行う場合は、安全第一で、無理な運行は避けてください。道路情報や気象情報を常に確認し、柔軟な対応が求められます。",
-          "conveni": "夜遅くまで開いている店舗として、温かい飲み物、軽食、夜食の需要が高まります。凍結防止剤や滑り止めシート、使い捨てカイロなどの防寒用品は、急な必要に備えて在庫を確保しておきましょう。ATMの利用も多い時間帯です。"
-        }
-      }
-    }
-  }
-]
+  ]
+}
