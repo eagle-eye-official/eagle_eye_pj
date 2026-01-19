@@ -4,14 +4,16 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=2.18.2 <3.0.0'
+  sdk: '>=2.18.2 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  # ★ここを修正しました！Zapp!で動くバージョンです
   http: ^0.13.6
+  # ★ここに追加しました！
+  intl: ^0.18.1
+  table_calendar: ^3.0.9
 
 dev_dependencies:
   flutter_test:
