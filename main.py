@@ -9,7 +9,7 @@ import google.generativeai as genai
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# ★全エリア解放
+# ★全エリア設定
 TARGET_AREAS = {
     "hakodate": {
         "name": "北海道 函館市",
@@ -26,7 +26,7 @@ TARGET_AREAS = {
     "osaka_kita": {
         "name": "大阪 キタ (梅田)",
         "lat": 34.7025, "lon": 135.4959,
-        "population": 1000000,
+        "population": 1000000, 
         "feature": "西日本最大のビジネス街兼繁華街。グランフロントや地下街が発達。"
     },
     "osaka_minami": {
@@ -89,7 +89,7 @@ def get_weather_label(code):
     if code >= 95: return "雷雨"
     return "曇り"
 
-# --- AI生成 (絶対諦めないロジック) ---
+# --- AI生成 (安全運転モード) ---
 def get_ai_advice(area_key, area_data, target_date, days_offset):
     if not API_KEY: return None
     genai.configure(api_key=API_KEY)
@@ -111,7 +111,7 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
         w_info = f"最高{real_weather['main']['max_temp']}℃ / 最低{real_weather['main']['min_temp']}℃ / 降水{real_weather['main']['rain_prob']}%"
         main_condition = get_weather_label(real_weather['main']['code'])
 
-    print(f"🤖 [AI予測] {area_data['name']} / {full_date} 生成開始...", flush=True)
+    print(f"🤖 [AI予測] {area_data['name']} / {full_date} 生成中...", flush=True)
 
     prompt = f"""
     あなたは「{area_data['name']}」の地域特性に精通した観光コンサルタントAIです。
@@ -135,28 +135,15 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     }}
     """
     
-    # ★修正ポイント：粘り強いリトライループ
-    # モデルリスト（安定版のみ）
-    model_name = "gemini-1.5-flash" 
+    # 安定のFlashモデルのみを使用
+    model = genai.GenerativeModel("gemini-1.5-flash")
     
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            model = genai.GenerativeModel(model_name)
-            res = model.generate_content(prompt)
-            return json.loads(res.text.replace("```json", "").replace("```", "").strip())
-        except Exception as e:
-            print(f"⚠️ エラー (試行 {attempt+1}/{max_retries}): {e}", flush=True)
-            if "429" in str(e):
-                wait_time = 60 # 429エラーなら60秒待つ（これで速度制限解除を待つ）
-                print(f"⏳ 速度制限検知。{wait_time}秒待機して再挑戦します...", flush=True)
-                time.sleep(wait_time)
-            else:
-                time.sleep(10) # その他のエラーは10秒
-            continue
-            
-    print(f"❌ {full_date} の生成に最終的に失敗しました。", flush=True)
-    return None
+    try:
+        res = model.generate_content(prompt)
+        return json.loads(res.text.replace("```json", "").replace("```", "").strip())
+    except Exception as e:
+        print(f"⚠️ エラー: {e}", flush=True)
+        return None
 
 # --- 簡易予測 ---
 def get_simple_forecast(target_date):
@@ -176,7 +163,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye 全国版(リトライ強化) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye 全国版(安全運転モード) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -187,16 +174,17 @@ if __name__ == "__main__":
         for i in range(90):
             target_date = today + timedelta(days=i)
             
-            # 直近3日はAI
-            if i < 3:
+            if i < 3: # 直近3日はAI
                 data = get_ai_advice(area_key, area_data, target_date, i)
                 if data:
                     area_forecasts.append(data)
-                    # 成功しても、次のリクエストのために少し休む（予防策）
-                    time.sleep(10) 
+                    # ★ここが重要：成功したら必ず30秒休む（無料枠対策）
+                    print("☕ API制限回避のため30秒休憩します...", flush=True)
+                    time.sleep(30) 
                 else:
-                    # 3回リトライしてもダメなら諦めて簡易版
-                    print(f"⚠️ {i}日後は簡易版にフォールバックします", flush=True)
+                    # 失敗したら60秒待ってから簡易版へ（クールダウン）
+                    print("⚠️ 生成失敗。60秒クールダウン後に簡易版を適用。", flush=True)
+                    time.sleep(60)
                     area_forecasts.append(get_simple_forecast(target_date))
             else:
                 area_forecasts.append(get_simple_forecast(target_date))
