@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 保存用
 
 void main() async {
-  await initializeDateFormatting();
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting(); // 日本語ロケール初期化
   runApp(const EagleEyeApp());
 }
 
@@ -37,7 +39,6 @@ class JobData {
   JobData({required this.id, required this.label, required this.icon, required this.badgeColor});
 }
 
-// エリア定義
 class AreaData {
   final String id;
   final String name;
@@ -50,19 +51,82 @@ class EagleEyeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Eagle Eye',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.background,
         primaryColor: AppColors.primary,
         appBarTheme: const AppBarTheme(backgroundColor: AppColors.background, elevation: 0),
         colorScheme: const ColorScheme.dark(primary: AppColors.primary, surface: AppColors.cardBackground),
       ),
-      home: const JobSelectionPage(),
+      home: const BootLoader(), // 起動時にチェックを行う
     );
   }
 }
 
-class JobSelectionPage extends StatelessWidget {
-  const JobSelectionPage({super.key});
+// ------------------------------
+// 🚀 起動チェック画面
+// ------------------------------
+class BootLoader extends StatefulWidget {
+  const BootLoader({super.key});
+
+  @override
+  State<BootLoader> createState() => _BootLoaderState();
+}
+
+class _BootLoaderState extends State<BootLoader> {
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstRun();
+  }
+
+  Future<void> _checkFirstRun() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedAreaId = prefs.getString('selected_area_id');
+    final savedJobId = prefs.getString('selected_job_id');
+
+    if (savedAreaId != null && savedJobId != null) {
+      // 設定済みならメイン画面へ
+      _navigateToMain(savedAreaId, savedJobId);
+    } else {
+      // 未設定なら初期設定画面へ
+      if (mounted) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OnboardingPage()));
+      }
+    }
+  }
+
+  void _navigateToMain(String areaId, String jobId) {
+    // IDからオブジェクトを復元
+    final area = OnboardingPage.availableAreas.firstWhere((a) => a.id == areaId, orElse: () => OnboardingPage.availableAreas.first);
+    final job = OnboardingPage.initialJobList.firstWhere((j) => j.id == jobId, orElse: () => OnboardingPage.initialJobList.first);
+
+    if (mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainerPage(initialArea: area, initialJob: job)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+}
+
+// ------------------------------
+// 🔰 初期設定画面 (オンボーディング)
+// ------------------------------
+class OnboardingPage extends StatefulWidget {
+  const OnboardingPage({super.key});
+
+  static final List<AreaData> availableAreas = [
+    AreaData("hakodate", "北海道 函館市"),
+    AreaData("osaka_hokusetsu", "大阪 北摂 (豊中・新大阪)"),
+    AreaData("osaka_kita", "大阪 キタ (梅田)"),
+    AreaData("osaka_minami", "大阪 ミナミ (難波)"),
+    AreaData("osaka_bay", "大阪 ベイエリア (USJ)"),
+    AreaData("osaka_tennoji", "大阪 天王寺・阿倍野"),
+  ];
+
   static final List<JobData> initialJobList = [
     JobData(id: "taxi", label: "タクシー運転手", icon: Icons.local_taxi_rounded, badgeColor: const Color(0xFFFBC02D)),
     JobData(id: "restaurant", label: "飲食店", icon: Icons.restaurant_rounded, badgeColor: const Color(0xFFD32F2F)),
@@ -73,51 +137,104 @@ class JobSelectionPage extends StatelessWidget {
   ];
 
   @override
+  State<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends State<OnboardingPage> {
+  AreaData? selectedArea;
+  JobData? selectedJob;
+
+  Future<void> _saveAndStart() async {
+    if (selectedArea == null || selectedJob == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_area_id', selectedArea!.id);
+    await prefs.setString('selected_job_id', selectedJob!.id);
+
+    if (mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainerPage(initialArea: selectedArea!, initialJob: selectedJob!)));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                const Icon(Icons.remove_red_eye_rounded, size: 80, color: Colors.white),
-                const SizedBox(height: 24),
-                const Text("Eagle Eye", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 8),
-                const Text("AIによる観光需要予測システム", style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                const SizedBox(height: 60),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: initialJobList.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) => _buildJobButton(context, initialJobList[index]),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildJobButton(BuildContext context, JobData job) {
-    return Material(
-      color: AppColors.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainerPage(selectedJob: job))),
-        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-          child: Row(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(job.icon, color: job.badgeColor, size: 28),
-              const SizedBox(width: 20),
-              Expanded(child: Text(job.label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-              const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textSecondary, size: 16),
+              const SizedBox(height: 20),
+              const Text("Welcome to\nEagle Eye", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              const SizedBox(height: 10),
+              const Text("あなたに最適化された予測を提供するため、\n基本情報を設定してください。", style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              const SizedBox(height: 40),
+              
+              const Text("エリアを選択", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<AreaData>(
+                value: selectedArea,
+                dropdownColor: AppColors.cardBackground,
+                decoration: InputDecoration(
+                  filled: true, fillColor: AppColors.cardBackground,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                hint: const Text("地域を選んでください"),
+                items: OnboardingPage.availableAreas.map((area) {
+                  return DropdownMenuItem(value: area, child: Text(area.name));
+                }).toList(),
+                onChanged: (val) => setState(() => selectedArea = val),
+              ),
+              
+              const SizedBox(height: 30),
+              const Text("職業を選択", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: OnboardingPage.initialJobList.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final job = OnboardingPage.initialJobList[index];
+                    final isSelected = selectedJob == job;
+                    return InkWell(
+                      onTap: () => setState(() => selectedJob = job),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withOpacity(0.2) : AppColors.cardBackground,
+                          borderRadius: BorderRadius.circular(12),
+                          border: isSelected ? Border.all(color: AppColors.primary) : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(job.icon, color: job.badgeColor),
+                            const SizedBox(width: 16),
+                            Text(job.label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const Spacer(),
+                            if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (selectedArea != null && selectedJob != null) ? _saveAndStart : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text("スタート", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
             ],
           ),
         ),
@@ -126,9 +243,13 @@ class JobSelectionPage extends StatelessWidget {
   }
 }
 
+// ------------------------------
+// 📱 メイン画面
+// ------------------------------
 class MainContainerPage extends StatefulWidget {
-  final JobData selectedJob;
-  const MainContainerPage({super.key, required this.selectedJob});
+  final AreaData initialArea;
+  final JobData initialJob;
+  const MainContainerPage({super.key, required this.initialArea, required this.initialJob});
 
   @override
   State<MainContainerPage> createState() => _MainContainerPageState();
@@ -136,23 +257,9 @@ class MainContainerPage extends StatefulWidget {
 
 class _MainContainerPageState extends State<MainContainerPage> {
   int _currentIndex = 0;
-  
-  // ★全体データ (Map形式: "hakodate": [...], "osaka_kita": [...])
   Map<String, dynamic> masterData = {};
-  
-  // ★現在選択中のエリア
-  AreaData currentArea = AreaData("osaka_hokusetsu", "大阪 北摂 (豊中・新大阪)"); // 初期値: ケイスケさんの地元
-
-  // 利用可能なエリアリスト
-  final List<AreaData> availableAreas = [
-    AreaData("hakodate", "北海道 函館市"),
-    AreaData("osaka_hokusetsu", "大阪 北摂 (豊中・新大阪)"),
-    AreaData("osaka_kita", "大阪 キタ (梅田)"),
-    AreaData("osaka_minami", "大阪 ミナミ (難波)"),
-    AreaData("osaka_bay", "大阪 ベイエリア (USJ)"),
-    AreaData("osaka_tennoji", "大阪 天王寺・阿倍野"),
-  ];
-
+  late AreaData currentArea;
+  late JobData currentJob;
   bool isLoading = true;
   String errorMessage = "";
   final PageController _dashboardPageController = PageController();
@@ -160,6 +267,8 @@ class _MainContainerPageState extends State<MainContainerPage> {
   @override
   void initState() {
     super.initState();
+    currentArea = widget.initialArea;
+    currentJob = widget.initialJob;
     _fetchData();
   }
 
@@ -183,6 +292,16 @@ class _MainContainerPageState extends State<MainContainerPage> {
     }
   }
 
+  // 設定保存用
+  Future<void> _updateSettings(AreaData newArea) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_area_id', newArea.id);
+    setState(() {
+      currentArea = newArea;
+      _dashboardPageController.jumpToPage(0);
+    });
+  }
+
   // エリア変更ダイアログ
   void _showAreaSelector() {
     showModalBottomSheet(
@@ -195,23 +314,20 @@ class _MainContainerPageState extends State<MainContainerPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("エリアを選択", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text("エリア切替", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.separated(
-                  itemCount: availableAreas.length,
+                  itemCount: OnboardingPage.availableAreas.length,
                   separatorBuilder: (context, index) => const Divider(color: Colors.grey),
                   itemBuilder: (context, index) {
-                    final area = availableAreas[index];
+                    final area = OnboardingPage.availableAreas[index];
                     final isSelected = area.id == currentArea.id;
                     return ListTile(
                       title: Text(area.name, style: TextStyle(color: isSelected ? AppColors.primary : Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                       leading: Icon(Icons.location_on, color: isSelected ? AppColors.primary : Colors.grey),
                       onTap: () {
-                        setState(() {
-                          currentArea = area;
-                          _dashboardPageController.jumpToPage(0); // ページリセット
-                        });
+                        _updateSettings(area);
                         Navigator.pop(context);
                       },
                     );
@@ -245,38 +361,54 @@ class _MainContainerPageState extends State<MainContainerPage> {
     if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (errorMessage.isNotEmpty) return Scaffold(body: Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red))));
 
-    // ★現在選択中のエリアのデータを抽出
-    // データがない場合（Python更新前など）は空リスト
     List<dynamic> currentAreaDataList = [];
     if (masterData.containsKey(currentArea.id)) {
       currentAreaDataList = masterData[currentArea.id];
-    } else {
-      // フォールバック: データ構造が古い場合など
-      if (masterData is List) {
-         // 古い形式ならそのまま使う（函館）
-         currentAreaDataList = masterData as List<dynamic>; 
-      }
     }
-    
-    // データが空の場合のガード
+
+    // データがない場合のガード
     if (currentAreaDataList.isEmpty) {
-        return const Scaffold(body: Center(child: Text("データ更新中...しばらくお待ち下さい")));
+        return Scaffold(
+          appBar: AppBar(toolbarHeight: 0),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off, size: 60, color: Colors.grey),
+                const SizedBox(height: 20),
+                Text("「${currentArea.name}」のデータは\nまだ準備中です。\n(Pythonを実行してデータを生成してください)", textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                ElevatedButton(onPressed: _showAreaSelector, child: const Text("他のエリアを見る")),
+              ],
+            ),
+          ),
+        );
     }
 
     final aiDataList = currentAreaDataList.where((d) => d['is_long_term'] == false).toList();
 
     final List<Widget> pages = [
-      DashboardPage(selectedJob: widget.selectedJob, allData: aiDataList, pageController: _dashboardPageController),
+      DashboardPage(selectedJob: currentJob, allData: aiDataList, pageController: _dashboardPageController),
       CalendarPage(allData: currentAreaDataList, onDateSelected: _onDateSelectedFromCalendar),
+      // プロフィール画面も簡易実装（再設定用）
+      Center(child: ElevatedButton(
+        onPressed: () async {
+           // 設定リセットして初期画面へ
+           final prefs = await SharedPreferences.getInstance();
+           await prefs.clear();
+           if(context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OnboardingPage()));
+        }, 
+        child: const Text("設定をリセット (初期画面へ)")
+      )),
     ];
 
     return Scaffold(
       appBar: AppBar(toolbarHeight: 0),
       body: Column(
         children: [
-          // ★エリア選択ヘッダー
+          // ヘッダー
           InkWell(
-            onTap: _showAreaSelector, // タップでエリア変更
+            onTap: _showAreaSelector, 
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: const BoxDecoration(
@@ -291,21 +423,21 @@ class _MainContainerPageState extends State<MainContainerPage> {
                       const Icon(Icons.location_on, color: AppColors.primary, size: 18),
                       const SizedBox(width: 4),
                       Text(currentArea.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      const Icon(Icons.arrow_drop_down, color: Colors.grey), // ▼アイコン追加
+                      const Icon(Icons.arrow_drop_down, color: Colors.grey),
                     ],
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: widget.selectedJob.badgeColor.withOpacity(0.2),
+                      color: currentJob.badgeColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: widget.selectedJob.badgeColor.withOpacity(0.5)),
+                      border: Border.all(color: currentJob.badgeColor.withOpacity(0.5)),
                     ),
                     child: Row(
                       children: [
-                        Icon(widget.selectedJob.icon, color: widget.selectedJob.badgeColor, size: 14),
+                        Icon(currentJob.icon, color: currentJob.badgeColor, size: 14),
                         const SizedBox(width: 6),
-                        Text(widget.selectedJob.label, style: TextStyle(color: widget.selectedJob.badgeColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(currentJob.label, style: TextStyle(color: currentJob.badgeColor, fontSize: 12, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -327,13 +459,9 @@ class _MainContainerPageState extends State<MainContainerPage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         onTap: (index) {
-          if (index == 2) {
-             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const JobSelectionPage()));
-          } else {
-            setState(() {
-              _currentIndex = index;
-            });
-          }
+          setState(() {
+            _currentIndex = index;
+          });
         },
       ),
     );
@@ -341,7 +469,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
 }
 
 // ------------------------------
-// 📅 カレンダーページ 
+// 📅 カレンダーページ (日本語化・スクロール対応)
 // ------------------------------
 class CalendarPage extends StatefulWidget {
   final List<dynamic> allData;
@@ -362,7 +490,6 @@ class _CalendarPageState extends State<CalendarPage> {
     _parseData();
   }
   
-  // データが変わったら再解析
   @override
   void didUpdateWidget(covariant CalendarPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -381,7 +508,7 @@ class _CalendarPageState extends State<CalendarPage> {
         DateTime dateKey = DateTime(dt.year, dt.month, dt.day);
         _rankMap[dateKey] = item['rank'] ?? "C";
       } catch (e) {
-        print("Date parse error: $e");
+        // ignore
       }
     }
     setState(() {});
@@ -400,6 +527,7 @@ class _CalendarPageState extends State<CalendarPage> {
     return Column(
       children: [
         TableCalendar(
+          locale: 'ja_JP', // ★日本語化！
           firstDay: DateTime.now().subtract(const Duration(days: 1)),
           lastDay: DateTime.now().add(const Duration(days: 90)),
           focusedDay: _focusedDay,
@@ -448,9 +576,12 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
         const SizedBox(height: 20),
         Expanded(
+          // ★修正：枠内をスクロール可能にして文字切れ防止
           child: _selectedDay == null 
           ? const Center(child: Text("日付をタップして詳細を確認", style: TextStyle(color: Colors.grey)))
-          : _buildSelectedDayInfo(),
+          : SingleChildScrollView( 
+              child: _buildSelectedDayInfo(),
+            ),
         ),
       ],
     );
@@ -475,7 +606,7 @@ class _CalendarPageState extends State<CalendarPage> {
     String dateLabel = targetData['date'];
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -507,16 +638,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 }
 
-List<Color> _getRankColors(String rank) {
-  switch (rank) {
-    case 'S': return [AppColors.rankS_Start, AppColors.rankS_End];
-    case 'A': return [AppColors.rankA_Start, AppColors.rankA_End];
-    case 'B': return [AppColors.rankB_Start, AppColors.rankB_End];
-    case 'C': return [AppColors.rankC_Start, AppColors.rankC_End];
-    default: return [Colors.grey, Colors.grey];
-  }
-}
-
+// ------------------------------
+// 📊 ダッシュボード (既存コード流用)
+// ------------------------------
 class DashboardPage extends StatelessWidget {
   final JobData selectedJob;
   final List<dynamic> allData;
@@ -524,7 +648,7 @@ class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.selectedJob, required this.allData, required this.pageController});
   @override
   Widget build(BuildContext context) {
-    if (allData.isEmpty) return const Center(child: Text("AI予測データがありません\nカレンダーから長期予報を確認してください"));
+    if (allData.isEmpty) return const Center(child: Text("AI詳細予測データがありません\n（直近3日間のみ表示されます）"));
     return PageView.builder(
       controller: pageController,
       itemCount: allData.length,
@@ -690,5 +814,15 @@ class DailyReportView extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+List<Color> _getRankColors(String rank) {
+  switch (rank) {
+    case 'S': return [AppColors.rankS_Start, AppColors.rankS_End];
+    case 'A': return [AppColors.rankA_Start, AppColors.rankA_End];
+    case 'B': return [AppColors.rankB_Start, AppColors.rankB_End];
+    case 'C': return [AppColors.rankC_Start, AppColors.rankC_End];
+    default: return [Colors.grey, Colors.grey];
   }
 }
