@@ -9,7 +9,7 @@ import google.generativeai as genai
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# ★全エリア解放（フルスペック）
+# ★全エリア解放
 TARGET_AREAS = {
     "hakodate": {
         "name": "北海道 函館市",
@@ -89,7 +89,7 @@ def get_weather_label(code):
     if code >= 95: return "雷雨"
     return "曇り"
 
-# --- AI生成 (高速モード) ---
+# --- AI生成 (ハイブリッド対応版) ---
 def get_ai_advice(area_key, area_data, target_date, days_offset):
     if not API_KEY: return None
     genai.configure(api_key=API_KEY)
@@ -135,15 +135,23 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     }}
     """
     
-    # 課金済みなら高性能なProモデルも視野に入るが、まずはFlashで速度重視
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    
+    # ★ここが重要：モデル自動切り替えロジック
     try:
+        # まずは最新のFlashに挑戦！
+        model = genai.GenerativeModel("gemini-1.5-flash")
         res = model.generate_content(prompt)
         return json.loads(res.text.replace("```json", "").replace("```", "").strip())
+        
     except Exception as e:
-        print(f"⚠️ 生成エラー: {e}", flush=True)
-        return None
+        # 404(モデルが見つからない)などのエラーが出たら、即座にPro(旧型)に切り替え
+        print(f"⚠️ Flashモデルでの生成に失敗 ({e})。レガシーモデル(Pro)に切り替えます...", flush=True)
+        try:
+            model = genai.GenerativeModel("gemini-pro")
+            res = model.generate_content(prompt)
+            return json.loads(res.text.replace("```json", "").replace("```", "").strip())
+        except Exception as e2:
+            print(f"❌ レガシーモデルでも失敗: {e2}", flush=True)
+            return None
 
 # --- 簡易予測 ---
 def get_simple_forecast(target_date):
@@ -163,7 +171,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye 全国版(リミッター解除) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye 全国版(Flash/Proハイブリッド) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -178,8 +186,7 @@ if __name__ == "__main__":
                 data = get_ai_advice(area_key, area_data, target_date, i)
                 if data:
                     area_forecasts.append(data)
-                    # ★リミッター解除：待機時間を2秒に短縮
-                    time.sleep(2) 
+                    time.sleep(1) # 成功したら1秒待機
                 else:
                     print("⚠️ 生成失敗。簡易版を適用。", flush=True)
                     area_forecasts.append(get_simple_forecast(target_date))
