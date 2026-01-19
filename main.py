@@ -9,7 +9,7 @@ import google.generativeai as genai
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# ★全エリア設定
+# ★全エリア解放（フルスペック）
 TARGET_AREAS = {
     "hakodate": {
         "name": "北海道 函館市",
@@ -89,7 +89,7 @@ def get_weather_label(code):
     if code >= 95: return "雷雨"
     return "曇り"
 
-# --- AI生成 (安全運転モード) ---
+# --- AI生成 (高速モード) ---
 def get_ai_advice(area_key, area_data, target_date, days_offset):
     if not API_KEY: return None
     genai.configure(api_key=API_KEY)
@@ -111,7 +111,7 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
         w_info = f"最高{real_weather['main']['max_temp']}℃ / 最低{real_weather['main']['min_temp']}℃ / 降水{real_weather['main']['rain_prob']}%"
         main_condition = get_weather_label(real_weather['main']['code'])
 
-    print(f"🤖 [AI予測] {area_data['name']} / {full_date} 生成中...", flush=True)
+    print(f"🤖 [AI予測] {area_data['name']} / {full_date} 生成開始...", flush=True)
 
     prompt = f"""
     あなたは「{area_data['name']}」の地域特性に精通した観光コンサルタントAIです。
@@ -135,14 +135,14 @@ def get_ai_advice(area_key, area_data, target_date, days_offset):
     }}
     """
     
-    # 安定のFlashモデルのみを使用
+    # 課金済みなら高性能なProモデルも視野に入るが、まずはFlashで速度重視
     model = genai.GenerativeModel("gemini-1.5-flash")
     
     try:
         res = model.generate_content(prompt)
         return json.loads(res.text.replace("```json", "").replace("```", "").strip())
     except Exception as e:
-        print(f"⚠️ エラー: {e}", flush=True)
+        print(f"⚠️ 生成エラー: {e}", flush=True)
         return None
 
 # --- 簡易予測 ---
@@ -163,7 +163,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye 全国版(安全運転モード) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye 全国版(リミッター解除) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -178,13 +178,10 @@ if __name__ == "__main__":
                 data = get_ai_advice(area_key, area_data, target_date, i)
                 if data:
                     area_forecasts.append(data)
-                    # ★ここが重要：成功したら必ず30秒休む（無料枠対策）
-                    print("☕ API制限回避のため30秒休憩します...", flush=True)
-                    time.sleep(30) 
+                    # ★リミッター解除：待機時間を2秒に短縮
+                    time.sleep(2) 
                 else:
-                    # 失敗したら60秒待ってから簡易版へ（クールダウン）
-                    print("⚠️ 生成失敗。60秒クールダウン後に簡易版を適用。", flush=True)
-                    time.sleep(60)
+                    print("⚠️ 生成失敗。簡易版を適用。", flush=True)
                     area_forecasts.append(get_simple_forecast(target_date))
             else:
                 area_forecasts.append(get_simple_forecast(target_date))
