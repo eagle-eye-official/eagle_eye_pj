@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // クリップボード用
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:table_calendar/table_calendar.dart';
@@ -11,25 +12,21 @@ void main() async {
   runApp(const EagleEyeApp());
 }
 
-// --- 定数・モデル ---
+// --- 定数・設定 ---
 class AppColors {
-  static const background = Color(0xFF121212);
-  static const cardBackground = Color(0xFF1E1E1E);
-  static const navBarBackground = Color(0xFF1E1E1E);
-  static const primary = Colors.blueAccent;
+  static const background = Color(0xFF0F172A); // 深いネイビーブラック
+  static const cardBackground = Color(0xFF1E293B);
+  static const primary = Color(0xFF3B82F6); // 鮮やかなブルー
+  static const accent = Color(0xFFF59E0B); // ゴールド（鷲の目）
   
-  static const rankS_Start = Color(0xFFff9966);
-  static const rankS_End = Color(0xFFff5e62);
-  static const rankA_Start = Color(0xFFcb2d3e);
-  static const rankA_End = Color(0xFFef473a);
-  static const rankB_Start = Color(0xFF00c6ff);
-  static const rankB_End = Color(0xFF0072ff);
-  static const rankC_Start = Color(0xFF56ab2f);
-  static const rankC_End = Color(0xFFa8e063);
+  // ランク別カラー（視認性重視）
+  static const rankS = Color(0xFFEF4444); // 赤 (激混み)
+  static const rankA = Color(0xFFF97316); // オレンジ (混雑)
+  static const rankB = Color(0xFF3B82F6); // 青 (普通)
+  static const rankC = Color(0xFF10B981); // 緑 (閑散)
   
   static const textPrimary = Colors.white;
   static const textSecondary = Colors.grey;
-  static const warning = Color(0xFFff4b4b);
 }
 
 class JobData {
@@ -46,7 +43,7 @@ class AreaData {
   const AreaData(this.id, this.name);
 }
 
-// データ定義
+// エリア定義
 final List<AreaData> kAvailableAreas = [
   AreaData("hakodate", "北海道 函館市"),
   AreaData("osaka_hokusetsu", "大阪 北摂 (豊中・新大阪)"),
@@ -56,17 +53,22 @@ final List<AreaData> kAvailableAreas = [
   AreaData("osaka_tennoji", "大阪 天王寺・阿倍野"),
 ];
 
+// 職業定義 (追加済み)
 final List<JobData> kInitialJobList = [
-  JobData(id: "taxi", label: "タクシー運転手", icon: Icons.local_taxi_rounded, badgeColor: Color(0xFFFBC02D)),
-  JobData(id: "restaurant", label: "飲食店", icon: Icons.restaurant_rounded, badgeColor: Color(0xFFD32F2F)),
-  JobData(id: "hotel", label: "ホテル・宿泊", icon: Icons.apartment_rounded, badgeColor: Color(0xFF1976D2)),
-  JobData(id: "shop", label: "お土産・物販", icon: Icons.local_mall_rounded, badgeColor: Color(0xFFE91E63)),
-  JobData(id: "logistics", label: "物流・配送", icon: Icons.local_shipping_rounded, badgeColor: Color(0xFF009688)),
-  JobData(id: "conveni", label: "コンビニ", icon: Icons.storefront_rounded, badgeColor: Color(0xFFFF9800)),
+  JobData(id: "taxi", label: "タクシー運転手", icon: Icons.local_taxi, badgeColor: Colors.amber),
+  JobData(id: "restaurant", label: "飲食店", icon: Icons.restaurant, badgeColor: Colors.redAccent),
+  JobData(id: "hotel", label: "ホテル・宿泊", icon: Icons.hotel, badgeColor: Colors.blue),
+  JobData(id: "shop", label: "小売・物販", icon: Icons.store, badgeColor: Colors.pink),
+  JobData(id: "logistics", label: "物流・配送", icon: Icons.local_shipping, badgeColor: Colors.teal),
+  JobData(id: "conveni", label: "コンビニ", icon: Icons.local_convenience_store, badgeColor: Colors.orange),
+  JobData(id: "construction", label: "建設・現場", icon: Icons.construction, badgeColor: Colors.brown),
+  JobData(id: "delivery", label: "デリバリー", icon: Icons.delivery_dining, badgeColor: Colors.green),
+  JobData(id: "security", label: "イベント・警備", icon: Icons.security, badgeColor: Colors.indigo),
 ];
 
 final List<String> kAgeGroups = ["10代", "20代", "30代", "40代", "50代", "60代以上"];
 
+// --- アプリ本体 ---
 class EagleEyeApp extends StatelessWidget {
   const EagleEyeApp({super.key});
   @override
@@ -76,17 +78,83 @@ class EagleEyeApp extends StatelessWidget {
       title: 'Eagle Eye',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.background,
-        primaryColor: AppColors.primary,
-        appBarTheme: const AppBarTheme(backgroundColor: AppColors.background, elevation: 0),
         colorScheme: const ColorScheme.dark(primary: AppColors.primary, surface: AppColors.cardBackground),
+        appBarTheme: const AppBarTheme(backgroundColor: AppColors.background, elevation: 0),
       ),
-      home: const BootLoader(),
+      home: const SplashPage(), // スタートはスプラッシュ画面
     );
   }
 }
 
 // ------------------------------
-// 🚀 起動チェック
+// 🦅 スプラッシュ画面 (ロゴ表示)
+// ------------------------------
+class SplashPage extends StatefulWidget {
+  const SplashPage({super.key});
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(duration: const Duration(seconds: 2), vsync: this);
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
+    _controller.forward();
+    
+    // 3秒後に次へ遷移
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BootLoader()));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: FadeTransition(
+          opacity: _opacity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ※本来はここに Image.network(url) や Image.asset(path) を使います
+              // 今回はアイコンで代用しますが、雰囲気は出ます！
+              Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.accent, width: 4),
+                  boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.5), blurRadius: 30)],
+                ),
+                child: const Icon(Icons.remove_red_eye_rounded, size: 80, color: AppColors.accent),
+              ),
+              const SizedBox(height: 20),
+              const Text("EAGLE EYE", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: AppColors.accent)),
+              const SizedBox(height: 10),
+              const Text("Future Demand Forecast", style: TextStyle(color: Colors.grey, letterSpacing: 1)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------
+// 🚀 起動チェック & データロード
 // ------------------------------
 class BootLoader extends StatefulWidget {
   const BootLoader({super.key});
@@ -110,28 +178,24 @@ class _BootLoaderState extends State<BootLoader> {
     if (savedAreaId != null && savedJobId != null && savedAge != null) {
       _navigateToMain(savedAreaId, savedJobId, savedAge);
     } else {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OnboardingPage()));
-      }
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OnboardingPage()));
     }
   }
 
   void _navigateToMain(String areaId, String jobId, String age) {
     final area = kAvailableAreas.firstWhere((a) => a.id == areaId, orElse: () => kAvailableAreas.first);
     final job = kInitialJobList.firstWhere((j) => j.id == jobId, orElse: () => kInitialJobList.first);
-    if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainerPage(initialArea: area, initialJob: job, initialAge: age)));
-    }
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainContainerPage(initialArea: area, initialJob: job, initialAge: age)));
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.accent)));
   }
 }
 
 // ------------------------------
-// 🔰 初期設定画面 (オンボーディング)
+// 🔰 オンボーディング (初期設定)
 // ------------------------------
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -145,15 +209,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String? selectedAge;
 
   Future<void> _saveAndStart() async {
-    if (selectedArea == null || selectedJob == null || selectedAge == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_area_id', selectedArea!.id);
     await prefs.setString('selected_job_id', selectedJob!.id);
     await prefs.setString('selected_age', selectedAge!);
-
-    if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainerPage(initialArea: selectedArea!, initialJob: selectedJob!, initialAge: selectedAge!)));
-    }
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainContainerPage(initialArea: selectedArea!, initialJob: selectedJob!, initialAge: selectedAge!)));
   }
 
   @override
@@ -165,77 +225,42 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20),
-              const Text("Welcome to\nEagle Eye", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.primary)),
-              const SizedBox(height: 10),
-              const Text("あなたに最適化された予測を提供するため、\n基本情報を設定してください。", style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+              const Text("Welcome", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.accent)),
+              const Text("Eagle Eyeへようこそ", style: TextStyle(fontSize: 16, color: Colors.grey)),
               const SizedBox(height: 30),
               
-              _buildSectionTitle("エリア"),
-              DropdownButtonFormField<AreaData>(
-                value: selectedArea,
-                dropdownColor: AppColors.cardBackground,
-                decoration: _inputDecoration(),
-                hint: const Text("地域を選んでください"),
-                items: kAvailableAreas.map((area) => DropdownMenuItem(value: area, child: Text(area.name))).toList(),
-                onChanged: (val) => setState(() => selectedArea = val),
-              ),
-              
+              _dropdown("対象エリア", selectedArea?.name, (val) => setState(() => selectedArea = val), kAvailableAreas),
               const SizedBox(height: 20),
-              _buildSectionTitle("年代"),
-              DropdownButtonFormField<String>(
-                value: selectedAge,
-                dropdownColor: AppColors.cardBackground,
-                decoration: _inputDecoration(),
-                hint: const Text("年代を選んでください"),
-                items: kAgeGroups.map((age) => DropdownMenuItem(value: age, child: Text(age))).toList(),
-                onChanged: (val) => setState(() => selectedAge = val),
+              _dropdown("あなたの年代", selectedAge, (val) => setState(() => selectedAge = val), kAgeGroups),
+              const SizedBox(height: 20),
+              
+              const Text("職業", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10, runSpacing: 10,
+                children: kInitialJobList.map((job) {
+                  final isSelected = selectedJob == job;
+                  return ChoiceChip(
+                    label: Text(job.label),
+                    avatar: Icon(job.icon, size: 16, color: isSelected ? Colors.white : job.badgeColor),
+                    selected: isSelected,
+                    onSelected: (val) => setState(() => selectedJob = val ? job : null),
+                    selectedColor: AppColors.primary,
+                    backgroundColor: AppColors.cardBackground,
+                    labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
+                  );
+                }).toList(),
               ),
 
-              const SizedBox(height: 20),
-              _buildSectionTitle("職業"),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: kInitialJobList.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final job = kInitialJobList[index];
-                  final isSelected = selectedJob == job;
-                  return InkWell(
-                    onTap: () => setState(() => selectedJob = job),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary.withOpacity(0.2) : AppColors.cardBackground,
-                        borderRadius: BorderRadius.circular(12),
-                        border: isSelected ? Border.all(color: AppColors.primary) : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(job.icon, color: job.badgeColor),
-                          const SizedBox(width: 16),
-                          Text(job.label, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const Spacer(),
-                          if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: (selectedArea != null && selectedJob != null && selectedAge != null) ? _saveAndStart : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text("スタート", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, padding: const EdgeInsets.all(16)),
+                  child: const Text("分析を開始する", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
                 ),
               ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -243,24 +268,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-    );
-  }
-
-  InputDecoration _inputDecoration() {
-    return InputDecoration(
-      filled: true, fillColor: AppColors.cardBackground,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    );
+  Widget _dropdown<T>(String label, String? currentVal, Function(T?) onChanged, List<T> items) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(12)),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: items.contains(currentVal) || (T == AreaData && items.any((e) => (e as AreaData).name == currentVal)) ? items.firstWhere((e) => (e as dynamic).name == currentVal) : null, // 簡易的な選択ロジック
+            isExpanded: true,
+            hint: const Text("選択してください"),
+            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e is AreaData ? e.name : e.toString()))).toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      )
+    ]);
   }
 }
 
 // ------------------------------
-// 📱 メイン画面
+// 📱 メインコンテナ
 // ------------------------------
 class MainContainerPage extends StatefulWidget {
   final AreaData initialArea;
@@ -274,14 +304,12 @@ class MainContainerPage extends StatefulWidget {
 
 class _MainContainerPageState extends State<MainContainerPage> {
   int _currentIndex = 0;
-  Map<String, dynamic> masterData = {};
-  late AreaData currentArea;
-  late JobData currentJob;
-  late String currentAge;
+  List<dynamic> currentAreaDataList = [];
   bool isLoading = true;
-  String errorMessage = "";
-  final PageController _dashboardPageController = PageController();
-
+  AreaData currentArea = kAvailableAreas[0];
+  JobData currentJob = kInitialJobList[0];
+  String currentAge = "30代";
+  
   @override
   void initState() {
     super.initState();
@@ -292,33 +320,33 @@ class _MainContainerPageState extends State<MainContainerPage> {
   }
 
   Future<void> _fetchData() async {
-    const url = "https://raw.githubusercontent.com/eagle-eye-official/eagle_eye_pj/main/eagle_eye_data.json";
+    // キャッシュ回避のタイムスタンプ付与
+    final url = "https://eagle-eye-official.github.io/eagle_eye_pj/eagle_eye_data.json?t=${DateTime.now().millisecondsSinceEpoch}";
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
-        setState(() {
-          masterData = jsonDecode(response.body);
-          isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to load');
+        final Map<String, dynamic> allData = jsonDecode(utf8.decode(response.bodyBytes));
+        if (mounted) {
+          setState(() {
+            currentAreaDataList = allData[currentArea.id] ?? [];
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        errorMessage = "データ取得エラー: $e";
-        isLoading = false;
-      });
+      debugPrint("Error: $e");
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // 設定更新
-  Future<void> _updateSettings({AreaData? area, JobData? job, String? age}) async {
+  void _updateSettings({AreaData? area, JobData? job, String? age}) async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       if (area != null) {
         currentArea = area;
         prefs.setString('selected_area_id', area.id);
-        _dashboardPageController.jumpToPage(0);
+        isLoading = true; // エリア変更時はロード表示
+        _fetchData();
       }
       if (job != null) {
         currentJob = job;
@@ -331,45 +359,77 @@ class _MainContainerPageState extends State<MainContainerPage> {
     });
   }
 
-  void _showAreaSelector() {
-    _showSelectorModel("エリア切替", kAvailableAreas, (AreaData item) => _updateSettings(area: item), (item) => item.name, (item) => item.id == currentArea.id);
-  }
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      DashboardPage(dataList: currentAreaDataList, job: currentJob, isLoading: isLoading),
+      CalendarPage(dataList: currentAreaDataList),
+      ProfilePage(area: currentArea, job: currentJob, age: currentAge, onUpdate: _updateSettings, fullData: currentAreaDataList),
+    ];
 
-  void _showJobSelector() {
-    _showSelectorModel("職業切替", kInitialJobList, (JobData item) => _updateSettings(job: item), (item) => item.label, (item) => item.id == currentJob.id);
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(children: [
+          const Icon(Icons.remove_red_eye, color: AppColors.accent, size: 20),
+          const SizedBox(width: 8),
+          Text(currentArea.name, style: const TextStyle(fontSize: 14)),
+          const Icon(Icons.arrow_drop_down, color: Colors.grey)
+        ]),
+        actions: [
+          IconButton(onPressed: () => _updateSettings(area: kAvailableAreas[(kAvailableAreas.indexOf(currentArea) + 1) % kAvailableAreas.length]), icon: const Icon(Icons.swap_horiz))
+        ],
+      ),
+      body: pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: AppColors.cardBackground,
+        selectedItemColor: AppColors.accent,
+        unselectedItemColor: Colors.grey,
+        currentIndex: _currentIndex,
+        onTap: (idx) => setState(() => _currentIndex = idx),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: "分析"),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: "カレンダー"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "設定"),
+        ],
+      ),
+    );
   }
+}
 
-  void _showSelectorModel<T>(String title, List<T> items, Function(T) onSelected, String Function(T) labelExtractor, bool Function(T) isSelected) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBackground,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
+// ------------------------------
+// 📊 ダッシュボード (Home)
+// ------------------------------
+class DashboardPage extends StatelessWidget {
+  final List<dynamic> dataList;
+  final JobData job;
+  final bool isLoading;
+
+  const DashboardPage({super.key, required this.dataList, required this.job, required this.isLoading});
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.accent));
+    if (dataList.isEmpty) return const Center(child: Text("データ取得失敗\n再度読み込んでください"));
+
+    // 直近3日分を表示
+    final displayData = dataList.take(3).toList();
+
+    return PageView.builder(
+      itemCount: displayData.length,
+      itemBuilder: (context, index) {
+        final dayData = displayData[index];
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: items.length,
-                  separatorBuilder: (context, index) => const Divider(color: Colors.grey),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final selected = isSelected(item);
-                    return ListTile(
-                      title: Text(labelExtractor(item), style: TextStyle(color: selected ? AppColors.primary : Colors.white, fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-                      leading: selected ? const Icon(Icons.check, color: AppColors.primary) : null,
-                      onTap: () {
-                        onSelected(item);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
+              _buildDateHeader(dayData['date'], index),
+              const SizedBox(height: 10),
+              _buildRankCard(dayData),
+              const SizedBox(height: 20),
+              _buildGoogleSearchInfo(dayData), // Google検索情報
+              const SizedBox(height: 20),
+              _buildTimeline(dayData, job),
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -377,499 +437,321 @@ class _MainContainerPageState extends State<MainContainerPage> {
     );
   }
 
-  void _onDateSelectedFromCalendar(int index) {
-    setState(() { _currentIndex = 0; });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_dashboardPageController.hasClients) {
-        if (index < 3) {
-          _dashboardPageController.jumpToPage(index);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("詳細予測は直近3日間のみ閲覧可能です"), duration: Duration(seconds: 1)));
-        }
-      }
-    });
+  Widget _buildDateHeader(String date, int index) {
+    final label = index == 0 ? "今日" : (index == 1 ? "明日" : "明後日");
+    return Text("$label ($date)", style: const TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (errorMessage.isNotEmpty) return Scaffold(body: Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red))));
+  Widget _buildRankCard(Map<String, dynamic> data) {
+    final rank = data['rank'] ?? "C";
+    final weather = data['weather_overview'] ?? {};
+    final condition = weather['condition'] ?? "☁️"; // 絵文字
+    final rain = weather['rain'] ?? "-%"; // 文字列 "午前20% / 午後30%"
+    final high = weather['high'] ?? "-";
+    final low = weather['low'] ?? "-";
 
-    List<dynamic> currentAreaDataList = [];
-    if (masterData.containsKey(currentArea.id)) {
-      currentAreaDataList = masterData[currentArea.id];
-    } else if (masterData is List) {
-      currentAreaDataList = masterData as List<dynamic>; 
-    }
+    Color color = AppColors.rankC;
+    String text = "閑散";
+    if (rank == "S") { color = AppColors.rankS; text = "激混み"; }
+    if (rank == "A") { color = AppColors.rankA; text = "混雑"; }
+    if (rank == "B") { color = AppColors.rankB; text = "普通"; }
 
-    if (currentAreaDataList.isEmpty) {
-        return Scaffold(
-          appBar: AppBar(toolbarHeight: 0),
-          body: Center(child: Text("データ準備中: ${currentArea.name}")),
-        );
-    }
-
-    final dashboardList = currentAreaDataList.take(3).toList();
-
-    final List<Widget> pages = [
-      DashboardPage(selectedJob: currentJob, displayData: dashboardList, pageController: _dashboardPageController),
-      CalendarPage(allData: currentAreaDataList, onDateSelected: _onDateSelectedFromCalendar),
-      ProfilePage(area: currentArea, job: currentJob, age: currentAge, onUpdate: _updateSettings),
-    ];
-
-    return Scaffold(
-      appBar: AppBar(toolbarHeight: 0),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(color: AppColors.background, border: Border(bottom: BorderSide(color: Colors.white10))),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                InkWell(
-                  onTap: _showAreaSelector,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on, color: AppColors.primary, size: 18),
-                        const SizedBox(width: 4),
-                        Text(currentArea.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                      ],
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: _showJobSelector,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: currentJob.badgeColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: currentJob.badgeColor.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(currentJob.icon, color: currentJob.badgeColor, size: 14),
-                        const SizedBox(width: 6),
-                        Text(currentJob.label, style: TextStyle(color: currentJob.badgeColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(child: pages[_currentIndex]),
-        ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color.withOpacity(0.8), color], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppColors.navBarBackground,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
-        currentIndex: _currentIndex,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Calendar'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(rank, style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold, height: 1)),
+              const SizedBox(width: 20),
+              Column(
+                children: [
+                  Text(text, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                  Text(condition, style: const TextStyle(fontSize: 40)), // 天気絵文字
+                ],
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Column(children: [
+                const Icon(Icons.thermostat, color: Colors.white, size: 28),
+                Text("$high / $low", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ]),
+              Column(children: [
+                const Icon(Icons.umbrella, color: Colors.white, size: 28),
+                Text(rain, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), // 降水確率
+              ]),
+            ],
+          ),
         ],
-        onTap: (index) => setState(() => _currentIndex = index),
       ),
     );
   }
-}
 
-// ------------------------------
-// 👤 プロフィール画面
-// ------------------------------
-class ProfilePage extends StatelessWidget {
-  final AreaData area;
-  final JobData job;
-  final String age;
-  final Function({AreaData? area, JobData? job, String? age}) onUpdate;
+  Widget _buildGoogleSearchInfo(Map<String, dynamic> data) {
+    final info = data['daily_schedule_and_impact'] as String?;
+    if (info == null || info.isEmpty) return const SizedBox.shrink();
 
-  const ProfilePage({super.key, required this.area, required this.job, required this.age, required this.onUpdate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent.withOpacity(0.5)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Profile Settings", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          _buildSettingItem(context, "登録エリア", area.name, () {}),
-          const Divider(color: Colors.grey),
-          _buildSettingItem(context, "職業", job.label, () {}),
-          const Divider(color: Colors.grey),
-          _buildSettingItem(context, "年代", age, () {
-             showModalBottomSheet(context: context, builder: (c) => _buildAgeSelector(c));
-          }),
-          const Divider(color: Colors.grey),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
-                if (context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OnboardingPage()));
-              },
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-              child: const Text("設定をリセットして初期画面へ"),
-            ),
-          ),
-          const SizedBox(height: 20),
+          const Row(children: [
+            Icon(Icons.search, color: AppColors.accent),
+            SizedBox(width: 8),
+            Text("AI詳細分析レポート (Google検索)", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 16))
+          ]),
+          const SizedBox(height: 12),
+          Text(info, style: const TextStyle(fontSize: 14, height: 1.6)),
         ],
       ),
     );
   }
 
-  Widget _buildAgeSelector(BuildContext context) {
+  Widget _buildTimeline(Map<String, dynamic> data, JobData job) {
+    final timeline = data['timeline'];
+    if (timeline == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("時間ごとの天気 & アドバイス", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        _timeSlot("朝 (05-11)", timeline['morning'], job),
+        _timeSlot("昼 (11-16)", timeline['daytime'], job),
+        _timeSlot("夜 (16-24)", timeline['night'], job),
+      ],
+    );
+  }
+
+  Widget _timeSlot(Map<String, dynamic>? slot, String label, JobData job) {
+    if (slot == null) return const SizedBox.shrink();
+    final adviceMap = slot['advice'] ?? {};
+    final myAdvice = adviceMap[job.id] ?? "特になし";
+    final emoji = slot['weather'] ?? ""; // 絵文字
+    final temp = slot['temp'] ?? "";
+    final rain = slot['rain'] ?? "";
+
     return Container(
-      color: AppColors.cardBackground,
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(12)),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("年代を変更", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ...kAgeGroups.map((a) => ListTile(
-            title: Text(a, style: const TextStyle(color: Colors.white)),
-            onTap: () {
-              onUpdate(age: a);
-              Navigator.pop(context);
-            },
-          )),
+          Row(
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+              const Spacer(),
+              Text("$emoji $temp  ☔$rain", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(job.icon, size: 18, color: Colors.grey),
+              const SizedBox(width: 8),
+              Expanded(child: Text(myAdvice, style: const TextStyle(fontSize: 14, height: 1.4))),
+            ],
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildSettingItem(BuildContext context, String label, String value, VoidCallback onTap) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-      subtitle: Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-      trailing: const Icon(Icons.edit, color: AppColors.primary, size: 20),
-      onTap: onTap,
-    );
-  }
 }
 
 // ------------------------------
-// 📅 カレンダーページ
+// 📅 カレンダー
 // ------------------------------
-class CalendarPage extends StatefulWidget {
-  final List<dynamic> allData;
-  final Function(int) onDateSelected;
-  const CalendarPage({super.key, required this.allData, required this.onDateSelected});
-  @override
-  State<CalendarPage> createState() => _CalendarPageState();
-}
-
-class _CalendarPageState extends State<CalendarPage> {
-  DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
-  Map<DateTime, String> _rankMap = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _parseData();
-  }
-  
-  @override
-  void didUpdateWidget(covariant CalendarPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.allData != oldWidget.allData) {
-      _parseData();
-    }
-  }
-
-  void _parseData() {
-    _rankMap = {};
-    for (var item in widget.allData) {
-      try {
-        String dateStr = item['date'].split(' ')[0];
-        dateStr = dateStr.replaceAll('年', '-').replaceAll('月', '-').replaceAll('日', '');
-        DateTime dt = DateTime.parse(dateStr);
-        DateTime dateKey = DateTime(dt.year, dt.month, dt.day);
-        _rankMap[dateKey] = item['rank'] ?? "C";
-      } catch (e) {
-        // ignore
-      }
-    }
-    setState(() {});
-  }
-
-  List<dynamic> _getEventsForDay(DateTime day) {
-    DateTime key = DateTime(day.year, day.month, day.day);
-    if (_rankMap.containsKey(key)) {
-      return [_rankMap[key]];
-    }
-    return [];
-  }
+class CalendarPage extends StatelessWidget {
+  final List<dynamic> dataList;
+  const CalendarPage({super.key, required this.dataList});
 
   @override
   Widget build(BuildContext context) {
+    // ランクごとの色分け用マップ
+    final rankMap = {
+      for (var item in dataList) 
+        _parseDate(item['date']): item['rank'] as String
+    };
+
     return Column(
       children: [
         TableCalendar(
           locale: 'ja_JP',
           firstDay: DateTime.now().subtract(const Duration(days: 1)),
           lastDay: DateTime.now().add(const Duration(days: 90)),
-          focusedDay: _focusedDay,
-          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-          onDaySelected: (selectedDay, focusedDay) {
-            setState(() {
-              _selectedDay = selectedDay;
-              _focusedDay = focusedDay;
-            });
-          },
+          focusedDay: DateTime.now(),
           calendarFormat: CalendarFormat.month,
-          eventLoader: _getEventsForDay,
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-            titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white),
-            rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white),
-          ),
-          calendarStyle: const CalendarStyle(
-            defaultTextStyle: TextStyle(color: Colors.white),
-            weekendTextStyle: TextStyle(color: Colors.redAccent),
-            outsideTextStyle: TextStyle(color: Colors.grey),
-            todayDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-            selectedDecoration: BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
-          ),
+          headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
           calendarBuilders: CalendarBuilders(
             markerBuilder: (context, date, events) {
-              if (events.isEmpty) return null;
-              String rank = events.first as String;
-              Color color = Colors.grey;
-              if (rank == "S") color = AppColors.rankS_Start;
-              if (rank == "A") color = AppColors.rankA_Start;
-              if (rank == "B") color = AppColors.rankB_Start;
-              if (rank == "C") color = AppColors.rankC_Start;
-
-              return Positioned(
-                bottom: 1,
-                child: Container(
-                  width: 8, height: 8,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-              );
+              final dateKey = DateTime(date.year, date.month, date.day);
+              if (rankMap.containsKey(dateKey)) {
+                final rank = rankMap[dateKey]!;
+                Color c = AppColors.rankC;
+                if(rank=="S") c=AppColors.rankS;
+                if(rank=="A") c=AppColors.rankA;
+                if(rank=="B") c=AppColors.rankB;
+                return Positioned(
+                  bottom: 1,
+                  child: Container(width: 6, height: 6, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+                );
+              }
+              return null;
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: _selectedDay == null 
-          ? const Center(child: Text("日付をタップして詳細を確認", style: TextStyle(color: Colors.grey)))
-          : SingleChildScrollView( 
-              child: _buildSelectedDayInfo(),
-            ),
-        ),
+        const Expanded(child: Center(child: Text("日付をタップすると詳細が見れます\n(※現在は直近3日のみ詳細表示)")))
       ],
     );
   }
+  
+  DateTime _parseDate(String dateStr) {
+    // "2026年01月20日 (火)" -> DateTime
+    try {
+      final cleanStr = dateStr.split(' ')[0].replaceAll('年', '-').replaceAll('月', '-').replaceAll('日', '');
+      return DateTime.parse(cleanStr);
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+}
 
-  Widget _buildSelectedDayInfo() {
-    var targetData = widget.allData.firstWhere((item) {
-      try {
-        String dateStr = item['date'].split(' ')[0];
-        dateStr = dateStr.replaceAll('年', '-').replaceAll('月', '-').replaceAll('日', '');
-        DateTime dt = DateTime.parse(dateStr);
-        return isSameDay(DateTime(dt.year, dt.month, dt.day), _selectedDay);
-      } catch (e) {
-        return false;
-      }
-    }, orElse: () => null);
+// ------------------------------
+// 👤 設定 & CSV出力
+// ------------------------------
+class ProfilePage extends StatelessWidget {
+  final AreaData area;
+  final JobData job;
+  final String age;
+  final Function({AreaData? area, JobData? job, String? age}) onUpdate;
+  final List<dynamic> fullData; // CSV出力用
 
-    if (targetData == null) return const Center(child: Text("データなし"));
+  const ProfilePage({super.key, required this.area, required this.job, required this.age, required this.onUpdate, required this.fullData});
 
-    String rank = targetData['rank'] ?? "-";
-    bool isLongTerm = targetData['is_long_term'] ?? true;
-    String dateLabel = targetData['date'];
-
-    return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(dateLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("設定変更", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          _item("登録エリア", area.name, () => _showAreaPicker(context)),
+          _item("職業", job.label, () => _showJobPicker(context)),
+          _item("年代", age, () => _showAgePicker(context)),
+          
+          const SizedBox(height: 40),
+          const Text("データ活用", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Text("需要予測ランク", style: const TextStyle(color: Colors.grey)),
-          Text(rank, style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: _getRankColor(rank))),
-          const SizedBox(height: 10),
-          if (isLongTerm)
-             const Text("※長期予測モード\n（過去の傾向に基づく予測です）", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey))
-          else
-             const Text("✨AI詳細分析済み\n（イベント・天候加味）", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.amber)),
-        ],
-      ),
-    );
-  }
-
-  Color _getRankColor(String rank) {
-    if (rank == "S") return AppColors.rankS_End;
-    if (rank == "A") return AppColors.rankA_End;
-    if (rank == "B") return AppColors.rankB_End;
-    return AppColors.rankC_End;
-  }
-}
-
-// ------------------------------
-// 📊 ダッシュボード
-// ------------------------------
-class DashboardPage extends StatelessWidget {
-  final JobData selectedJob;
-  final List<dynamic> displayData;
-  final PageController pageController;
-  const DashboardPage({super.key, required this.selectedJob, required this.displayData, required this.pageController});
-
-  @override
-  Widget build(BuildContext context) {
-    if (displayData.isEmpty) return const Center(child: Text("データがありません"));
-    return PageView.builder(
-      controller: pageController,
-      itemCount: displayData.length,
-      itemBuilder: (context, index) {
-        return DailyReportView(data: displayData[index], selectedJob: selectedJob, pageIndex: index);
-      },
-    );
-  }
-}
-
-class DailyReportView extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final JobData selectedJob;
-  final int pageIndex;
-  const DailyReportView({super.key, required this.data, required this.selectedJob, required this.pageIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    String date = data['date'] ?? "";
-    String rank = data['rank'] ?? "C";
-    bool isLongTerm = data['is_long_term'] ?? false;
-
-    Map<String, dynamic> wOverview = data['weather_overview'] ?? {};
-    String condition = wOverview['condition'] ?? "-";
-    String high = wOverview['high'] ?? "-";
-    String low = wOverview['low'] ?? "-";
-    String rain = wOverview['rain'] ?? "-";
-    Map<String, dynamic> events = data['events_info'] ?? {};
-    String eventName = events['event_name'] ?? "";
-    String trafficWarn = events['traffic_warning'] ?? "";
-
-    List<Color> rankColors = _getRankColors(rank);
-    String rankLabel = rank == "S" ? "激混み" : (rank == "A" ? "混雑" : (rank == "B" ? "普通" : "閑散"));
-    String dayLabel = pageIndex == 0 ? "今日" : (pageIndex == 1 ? "明日" : "明後日");
-
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text("$dayLabelの予測 ($date)", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    _buildMainCard(rank, rankLabel, condition, high, low, rain, rankColors),
-                    
-                    if (isLongTerm) ...[
-                      const SizedBox(height: 30),
-                      const Icon(Icons.info_outline, color: Colors.amber, size: 40),
-                      const SizedBox(height: 10),
-                      const Text("簡易予測モードで表示中", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      const Text("詳細なAI分析データが取得できていないため、\n過去の傾向に基づく予測を表示しています。", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                    ] else ...[
-                      const SizedBox(height: 24),
-                      _buildEventCard(eventName, "", trafficWarn),
-                      const SizedBox(height: 30),
-                      if (data['timeline'] != null) ...[
-                        const Align(alignment: Alignment.centerLeft, child: Text("Time Schedule", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                        const SizedBox(height: 16),
-                        _buildTimeSlot(data['timeline']?['morning'], "朝 (05:00-11:00)", Icons.wb_twilight),
-                        _buildTimeSlot(data['timeline']?['daytime'], "昼 (11:00-16:00)", Icons.wb_sunny),
-                        _buildTimeSlot(data['timeline']?['night'], "夜 (16:00-24:00)", Icons.nights_stay),
-                      ]
-                    ],
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
+          ElevatedButton.icon(
+            onPressed: () => _showCsvDialog(context),
+            icon: const Icon(Icons.download),
+            label: const Text("分析データをCSVで取得"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              minimumSize: const Size(double.infinity, 50),
             ),
           ),
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text("※企業への提供やご自身の分析用に、全期間のデータをCSV形式でコピーできます。", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMainCard(String rank, String label, String cond, String high, String low, String rain, List<Color> colors) {
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight), boxShadow: [BoxShadow(color: colors[0].withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))]),
-      child: Column(
-        children: [
-          Text(rank, style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold, height: 1.0)),
-          Text(label, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity, padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), borderRadius: BorderRadius.circular(16)),
-            child: Column(children: [Text(cond, style: const TextStyle(fontSize: 13, height: 1.4), textAlign: TextAlign.center, softWrap: true), const SizedBox(height: 12), Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Column(children: [const Icon(Icons.thermostat, color: Colors.white70, size: 20), const SizedBox(height: 4), Text("最高 $high\n最低 $low", textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))]), Column(children: [const Icon(Icons.umbrella, color: Colors.white70, size: 20), const SizedBox(height: 4), Text(rain, style: const TextStyle(fontSize: 12))])])]),
-          )
+  Widget _item(String label, String val, VoidCallback onTap) {
+    return Card(
+      color: AppColors.cardBackground,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        title: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        subtitle: Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        trailing: const Icon(Icons.edit, color: AppColors.primary),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  // CSV生成と表示
+  void _showCsvDialog(BuildContext context) {
+    // CSV生成ロジック
+    String csv = "日付,ランク,天気概況,最高気温,最低気温,イベント情報\n";
+    for (var item in fullData) {
+      final date = item['date'] ?? "";
+      final rank = item['rank'] ?? "";
+      final w = item['weather_overview'] ?? {};
+      final cond = w['condition'] ?? "";
+      final high = w['high'] ?? "";
+      final low = w['low'] ?? "";
+      // 改行コードなどを除去してCSV崩れを防ぐ
+      final info = (item['daily_schedule_and_impact'] ?? "なし").toString().replaceAll("\n", " ");
+      csv += "$date,$rank,$cond,$high,$low,$info\n";
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: const Text("CSVデータ"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("以下のテキストを全選択してコピーし、Excel等に貼り付けてください。", style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 10),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: SelectableText(csv, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () { Clipboard.setData(ClipboardData(text: csv)); }, child: const Text("クリップボードにコピー")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("閉じる")),
         ],
       ),
     );
   }
 
-  Widget _buildEventCard(String name, String time, String warning) {
-    if ((name == "特になし" || name == "") && warning == "") return const SizedBox.shrink();
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.amber.withOpacity(0.5))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: const [Icon(Icons.event_note, color: Colors.amber, size: 20), SizedBox(width: 8), Text("イベント・交通情報", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber))]), const SizedBox(height: 12), Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), if (warning.isNotEmpty) ...[const SizedBox(height: 12), Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Row(children: [const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16), const SizedBox(width: 8), Expanded(child: Text(warning, style: const TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.bold)))],),)]]),
-    );
+  void _showAreaPicker(BuildContext context) {
+    showModalBottomSheet(context: context, builder: (_) => ListView(
+      children: kAvailableAreas.map((a) => ListTile(title: Text(a.name), onTap: (){ onUpdate(area: a); Navigator.pop(context); })).toList()
+    ));
   }
-
-  Widget _buildTimeSlot(Map<String, dynamic>? data, String title, IconData icon) {
-    if (data == null) return const SizedBox.shrink();
-    String high = data['high'] ?? "-";
-    String low = data['low'] ?? "-";
-    String rain = data['rain'] ?? "-";
-    String weather = data['weather'] ?? "-";
-    Map<String, dynamic> advices = data['advice'] ?? {};
-    String jobAdvice = advices[selectedJob.id] ?? "特になし";
-    return Container(margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: Colors.blueAccent), const SizedBox(width: 10), Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), const Spacer(), const Icon(Icons.thermostat, size: 14, color: Colors.redAccent), Text(high, style: const TextStyle(color: Colors.grey, fontSize: 12)), const SizedBox(width: 4), const Icon(Icons.thermostat, size: 14, color: Colors.blueAccent), Text(low, style: const TextStyle(color: Colors.grey, fontSize: 12))]), const SizedBox(height: 4), Row(children: [const SizedBox(width: 34), Expanded(child: Text("天気: $weather", style: const TextStyle(fontSize: 13, color: Colors.grey))), const SizedBox(width: 8), const Icon(Icons.umbrella, size: 14, color: Colors.grey), Text(" $rain", style: const TextStyle(color: Colors.grey, fontSize: 12))]), const Divider(color: Colors.grey, height: 24), SelectableText(jobAdvice, style: const TextStyle(fontSize: 14, height: 1.6))]));
+  void _showJobPicker(BuildContext context) {
+    showModalBottomSheet(context: context, builder: (_) => ListView(
+      children: kInitialJobList.map((j) => ListTile(leading: Icon(j.icon), title: Text(j.label), onTap: (){ onUpdate(job: j); Navigator.pop(context); })).toList()
+    ));
   }
-}
-
-List<Color> _getRankColors(String rank) {
-  switch (rank) {
-    case 'S': return [AppColors.rankS_Start, AppColors.rankS_End];
-    case 'A': return [AppColors.rankA_Start, AppColors.rankA_End];
-    case 'B': return [AppColors.rankB_Start, AppColors.rankB_End];
-    case 'C': return [AppColors.rankC_Start, AppColors.rankC_End];
-    default: return [Colors.grey, Colors.grey];
+  void _showAgePicker(BuildContext context) {
+    showModalBottomSheet(context: context, builder: (_) => ListView(
+      children: kAgeGroups.map((a) => ListTile(title: Text(a), onTap: (){ onUpdate(age: a); Navigator.pop(context); })).toList()
+    ));
   }
 }
