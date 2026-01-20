@@ -301,6 +301,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
   int _currentIndex = 0;
   List<dynamic> currentAreaDataList = [];
   bool isLoading = true;
+  String? errorMessage;
   AreaData currentArea = kAvailableAreas[0];
   JobData currentJob = kInitialJobList[0];
   String currentAge = "30代";
@@ -314,10 +315,18 @@ class _MainContainerPageState extends State<MainContainerPage> {
     _fetchData();
   }
 
-  // ★修正箇所：無限ロード解消とキャッシュ対策
+  // ★修正箇所：データ取得先を「Raw URL」に変更し、エラーハンドリングを強化
   Future<void> _fetchData() async {
-    // タイムスタンプをつけてキャッシュを回避
-    final url = "https://eagle-eye-official.github.io/eagle_eye_pj/eagle_eye_data.json?t=${DateTime.now().millisecondsSinceEpoch}";
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    // キャッシュ回避のタイムスタンプ
+    final t = DateTime.now().millisecondsSinceEpoch;
+    // GitHubのRawデータURLを使用（反映が早い）
+    final url = "https://raw.githubusercontent.com/eagle-eye-official/eagle_eye_pj/main/eagle_eye_data.json?t=$t";
+    
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -325,18 +334,24 @@ class _MainContainerPageState extends State<MainContainerPage> {
         if (mounted) {
           setState(() {
             currentAreaDataList = allData[currentArea.id] ?? [];
-            isLoading = false; // 成功したらロード終了
+            isLoading = false;
           });
         }
       } else {
-        // データが見つからない場合もロード終了
-        debugPrint("Data fetch error: ${response.statusCode}");
-        if (mounted) setState(() => isLoading = false);
+        if (mounted) {
+          setState(() {
+            errorMessage = "データ取得エラー: ${response.statusCode}\nまだデータが生成されていない可能性があります。";
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      debugPrint("Error: $e");
-      // エラー発生時も必ずロード終了
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          errorMessage = "接続エラー: $e";
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -346,8 +361,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
       if (area != null) {
         currentArea = area;
         prefs.setString('selected_area_id', area.id);
-        isLoading = true; // エリア変更時はロード表示
-        _fetchData();
+        _fetchData(); // エリア変更時は再取得
       }
       if (job != null) {
         currentJob = job;
@@ -363,8 +377,8 @@ class _MainContainerPageState extends State<MainContainerPage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardPage(dataList: currentAreaDataList, job: currentJob, isLoading: isLoading, onRetry: _fetchData),
-      CalendarPage(dataList: currentAreaDataList, job: currentJob), // カレンダーにjobを渡す
+      DashboardPage(dataList: currentAreaDataList, job: currentJob, isLoading: isLoading, errorMessage: errorMessage, onRetry: _fetchData),
+      CalendarPage(dataList: currentAreaDataList, job: currentJob),
       ProfilePage(area: currentArea, job: currentJob, age: currentAge, onUpdate: _updateSettings),
     ];
 
@@ -404,23 +418,31 @@ class DashboardPage extends StatelessWidget {
   final List<dynamic> dataList;
   final JobData job;
   final bool isLoading;
+  final String? errorMessage;
   final VoidCallback onRetry;
 
-  const DashboardPage({super.key, required this.dataList, required this.job, required this.isLoading, required this.onRetry});
+  const DashboardPage({
+    super.key, 
+    required this.dataList, 
+    required this.job, 
+    required this.isLoading,
+    this.errorMessage,
+    required this.onRetry
+  });
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.accent));
     
-    // データがない場合の表示（リトライボタン付き）
-    if (dataList.isEmpty) {
+    // エラー表示
+    if (errorMessage != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 60, color: Colors.grey),
+            const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
             const SizedBox(height: 20),
-            const Text("データが見つかりません\nまだ予測データが生成されていない可能性があります", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: onRetry,
@@ -430,6 +452,10 @@ class DashboardPage extends StatelessWidget {
           ],
         ),
       );
+    }
+
+    if (dataList.isEmpty) {
+      return const Center(child: Text("表示するデータがありません"));
     }
 
     final displayData = dataList.take(3).toList();
@@ -599,7 +625,7 @@ class DashboardPage extends StatelessWidget {
 }
 
 // ------------------------------
-// 📅 カレンダー (修正版: タップ機能追加)
+// 📅 カレンダー (機能修復版)
 // ------------------------------
 class CalendarPage extends StatefulWidget {
   final List<dynamic> dataList;
@@ -640,11 +666,10 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
   
-  // 日付の比較用ヘルパー
+  // 日付文字列比較ロジック
   bool _isSameDateStr(String dateStrFromApi, String targetDateStr) {
     // API形式: "2026年01月20日 (火)"
     // ターゲット: "2026-01-20"
-    // 簡易的に先頭10文字で比較
     final cleanApiDate = dateStrFromApi.replaceAll('年', '-').replaceAll('月', '-').replaceAll('日', '').split(' ')[0];
     return cleanApiDate == targetDateStr;
   }
@@ -655,7 +680,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ランクマップ作成
+    // ランク色分け用マップ作成
     final rankMap = <DateTime, String>{};
     for (var item in widget.dataList) {
       try {
@@ -704,7 +729,7 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
           const Divider(height: 30, color: Colors.grey),
           
-          // 選択した日の詳細表示
+          // 選択した日の詳細表示エリア
           if (_selectedDayData != null) ...[
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -713,7 +738,6 @@ class _CalendarPageState extends State<CalendarPage> {
                 children: [
                   Text("選んだ日の予測: ${_selectedDayData!['date']}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  // Dashboardの部品を再利用して表示
                   _SimpleRankCard(data: _selectedDayData!),
                   const SizedBox(height: 20),
                   _SimpleTimeline(data: _selectedDayData!, job: widget.job),
@@ -743,10 +767,9 @@ class _SimpleRankCard extends StatelessWidget {
     final condition = weather['condition'] ?? "☁️";
     
     Color color = AppColors.rankC;
-    String text = "閑散";
-    if (rank == "S") { color = AppColors.rankS; text = "激混み"; }
-    if (rank == "A") { color = AppColors.rankA; text = "混雑"; }
-    if (rank == "B") { color = AppColors.rankB; text = "普通"; }
+    if (rank == "S") color = AppColors.rankS;
+    if (rank == "A") color = AppColors.rankA;
+    if (rank == "B") color = AppColors.rankB;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -759,7 +782,6 @@ class _SimpleRankCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Text(rank, style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: color)),
-          Text(text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           Text(condition, style: const TextStyle(fontSize: 30)),
         ],
       ),
@@ -776,7 +798,6 @@ class _SimpleTimeline extends StatelessWidget {
     final timeline = data['timeline'];
     if (timeline == null) return const Text("詳細タイムラインなし");
     
-    // 朝・昼・夜のアドバイスを抽出
     String getAdvice(String timeKey) {
       if (timeline[timeKey] == null) return "-";
       return timeline[timeKey]['advice']?[job.id] ?? "特になし";
@@ -807,7 +828,6 @@ class _SimpleTimeline extends StatelessWidget {
   }
 }
 
-
 // ------------------------------
 // 👤 設定 (CSVボタン削除版)
 // ------------------------------
@@ -832,7 +852,6 @@ class ProfilePage extends StatelessWidget {
           _item("職業", job.label, () => _showJobPicker(context)),
           _item("年代", age, () => _showAgePicker(context)),
           
-          // ★修正箇所：データ活用(CSVダウンロード)ボタンを削除しました
           const SizedBox(height: 40),
           const Divider(color: Colors.grey),
           const Padding(
