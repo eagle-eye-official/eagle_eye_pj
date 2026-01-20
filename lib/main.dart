@@ -19,14 +19,10 @@ class AppColors {
   static const primary = Color(0xFF3B82F6); // 鮮やかなブルー
   static const accent = Color(0xFFF59E0B); // ゴールド（鷲の目）
   
-  // ランク別カラー
   static const rankS = Color(0xFFEF4444); // 赤
   static const rankA = Color(0xFFF97316); // オレンジ
   static const rankB = Color(0xFF3B82F6); // 青
   static const rankC = Color(0xFF10B981); // 緑
-  
-  static const textPrimary = Colors.white;
-  static const textSecondary = Colors.grey;
 }
 
 class JobData {
@@ -43,7 +39,6 @@ class AreaData {
   const AreaData(this.id, this.name);
 }
 
-// エリア定義
 final List<AreaData> kAvailableAreas = [
   AreaData("hakodate", "北海道 函館市"),
   AreaData("osaka_hokusetsu", "大阪 北摂 (豊中・新大阪)"),
@@ -53,7 +48,6 @@ final List<AreaData> kAvailableAreas = [
   AreaData("osaka_tennoji", "大阪 天王寺・阿倍野"),
 ];
 
-// 職業定義
 final List<JobData> kInitialJobList = [
   JobData(id: "taxi", label: "タクシー運転手", icon: Icons.local_taxi, badgeColor: Colors.amber),
   JobData(id: "restaurant", label: "飲食店", icon: Icons.restaurant, badgeColor: Colors.redAccent),
@@ -87,7 +81,7 @@ class EagleEyeApp extends StatelessWidget {
 }
 
 // ------------------------------
-// 🦅 スプラッシュ画面
+// 🦅 スプラッシュ画面 (ロゴ画像対応版)
 // ------------------------------
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -127,17 +121,21 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 🦅 イーグルアイ・アイコン演出
+              // ★ロゴ画像を表示 (assets/image.png)
               Container(
-                padding: const EdgeInsets.all(30),
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.accent, width: 4),
                   boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.5), blurRadius: 30)],
+                  image: const DecorationImage(
+                    image: AssetImage('assets/image.png'), // アップロードした画像を指定
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                child: const Icon(Icons.remove_red_eye_rounded, size: 80, color: AppColors.accent),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
               const Text("EAGLE EYE", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: AppColors.accent)),
               const SizedBox(height: 10),
               const Text("Future Demand Forecast", style: TextStyle(color: Colors.grey, letterSpacing: 1)),
@@ -286,7 +284,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 }
 
 // ------------------------------
-// 📱 メインコンテナ
+// 📱 メインコンテナ (データ取得修正版)
 // ------------------------------
 class MainContainerPage extends StatefulWidget {
   final AreaData initialArea;
@@ -315,8 +313,8 @@ class _MainContainerPageState extends State<MainContainerPage> {
     _fetchData();
   }
 
+  // ★ここを修正しました！エラー時も必ずローディングを止めます
   Future<void> _fetchData() async {
-    // キャッシュ回避のタイムスタンプ
     final url = "https://eagle-eye-official.github.io/eagle_eye_pj/eagle_eye_data.json?t=${DateTime.now().millisecondsSinceEpoch}";
     try {
       final response = await http.get(Uri.parse(url));
@@ -325,12 +323,16 @@ class _MainContainerPageState extends State<MainContainerPage> {
         if (mounted) {
           setState(() {
             currentAreaDataList = allData[currentArea.id] ?? [];
-            isLoading = false;
           });
         }
+      } else {
+        // データが見つからない場合(404など)
+        debugPrint("Data fetch error: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Error: $e");
+    } finally {
+      // ★成功しても失敗しても、必ずローディングを終了する
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -405,7 +407,22 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.accent));
-    if (dataList.isEmpty) return const Center(child: Text("データ取得失敗\n再度読み込んでください"));
+    
+    // データがない場合の表示
+    if (dataList.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 60, color: Colors.grey),
+            const SizedBox(height: 20),
+            const Text("データが見つかりません\nまだ予測データが生成されていない可能性があります", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: (){}, child: const Text("再読み込み")), // 実際には親でリロードが必要
+          ],
+        ),
+      );
+    }
 
     final displayData = dataList.take(3).toList();
 
@@ -529,7 +546,6 @@ class DashboardPage extends StatelessWidget {
       children: [
         const Text("時間ごとの天気 & アドバイス", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        // ★修正済み：引数順序を統一 (Label, Data, Job)
         _timeSlot("朝 (05-11)", timeline['morning'], job),
         _timeSlot("昼 (11-16)", timeline['daytime'], job),
         _timeSlot("夜 (16-24)", timeline['night'], job),
