@@ -1,40 +1,40 @@
-name: Daily Eagle Eye Scan
+name: Eagle Eye Daily Forecast
 
 on:
   schedule:
-    # 毎日 日本時間 朝4:00 (UTC 19:00) に実行
-    - cron: '0 19 * * *'
-  workflow_dispatch: # 手動実行ボタンもつける
-
-permissions:
-  contents: write # データを保存する権限を与える
+    # 日本時間 朝5:00 (UTC 20:00) に定期実行
+    - cron: '0 20 * * *'
+  workflow_dispatch: # 手動実行ボタンも有効化
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Pythonをセットアップ
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11' # 最新ライブラリ対応のため3.11を指定
 
-      - name: ライブラリをインストール
-        run: |
-          pip install google-generativeai
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # ★ここが最重要：GoogleのAIライブラリを最新版に強制アップデート
+        pip install -U google-generativeai
+        # その他必要なライブラリ
+        pip install requests pytz
 
-      - name: Eagle Eye (Python) を実行
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          python main.py
+    - name: Run forecast script
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python main.py
 
-      - name: 結果を保存 (Git Commit & Push)
-        run: |
-          git config --global user.name "EagleEye-Bot"
-          git config --global user.email "bot@example.com"
-          git add eagle_eye_data.json
-          # 変更がある場合のみコミット
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Update Forecast Data" && git push)
+    - name: Commit and push if changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add eagle_eye_data.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update forecast data" && git push)
