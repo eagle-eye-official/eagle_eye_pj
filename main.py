@@ -6,19 +6,19 @@ import urllib.error
 import math
 import re
 from datetime import datetime, timedelta, timezone
-import google.generativeai as genai
+import requests # 直接通信用
 
 # --- 設定 ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
 JST = timezone(timedelta(hours=9), 'JST')
 
-# --- 戦略的30地点定義 (JMAコード 修正版: XX0000形式に統一) ---
+# --- 戦略的30地点定義 (JMAコード: 府県予報区 XX0000 形式) ---
 TARGET_AREAS = {
     # --- 北海道・東北 ---
     "hakodate": { "name": "北海道 函館", "jma_code": "014100", "feature": "観光・夜景・海鮮。冬は雪の影響大。クルーズ船寄港地。" },
     "sapporo": { "name": "北海道 札幌", "jma_code": "016000", "feature": "北日本最大の歓楽街ススキノ。雪まつり等のイベント。" },
     "sendai": { "name": "宮城 仙台", "jma_code": "040000", "feature": "東北のビジネス拠点。国分町の夜間需要。" },
-    # --- 東京・関東 (すべて東京130000等で取得) ---
+    # --- 東京・関東 ---
     "tokyo_marunouchi": { "name": "東京 丸の内・東京駅", "jma_code": "130000", "feature": "日本のビジネス中心地。出張・接待・富裕層需要。" },
     "tokyo_ginza": { "name": "東京 銀座・新橋", "jma_code": "130000", "feature": "夜の接待需要とサラリーマンの聖地。高級店多し。" },
     "tokyo_shinjuku": { "name": "東京 新宿・歌舞伎町", "jma_code": "130000", "feature": "世界一の乗降客数と眠らない街。タクシー需要最強。" },
@@ -65,6 +65,10 @@ def get_jma_forecast(area_code):
         with urllib.request.urlopen(forecast_url, timeout=15) as res:
             data = json.loads(res.read().decode('utf-8'))
             
+            # データ構造チェック
+            if not data or "timeSeries" not in data[0]:
+                raise ValueError("Unexpected JSON structure")
+
             weather_series = data[0]["timeSeries"][0]
             rain_series = data[0]["timeSeries"][1]
             temp_series = data[0]["timeSeries"][2]
@@ -80,13 +84,13 @@ def get_jma_forecast(area_code):
                     "code": get_val(weathers, 0),
                     "rain_am": get_val(rains, 0),
                     "rain_pm": get_val(rains, 1),
+                    # 気温は配列の最後が最高気温のことが多い
                     "high": temps[-1] if temps else "-", 
                     "low": temps[0] if temps else "-"
                 }
             ]
     except Exception as e:
         print(f"JMA Forecast Error ({area_code}): {e}")
-        # エラー時はダミーデータ
         result["forecasts"] = [{"code": "200", "rain_am": "-", "rain_pm": "-", "high": "-", "low": "-"}]
 
     # 2. 警報・注意報の取得
@@ -121,7 +125,58 @@ def extract_json_block(text):
     except:
         return text
 
-# --- モデル生成 (安全装置付き) ---
+# --- Google Gemini 直接通信 (REST API) ---
+def call_gemini_api(prompt, enable_search=True):
+    """
+    Pythonライブラリを使わず、直接HTTPリクエストでGemini APIを叩く。
+    """
+    model_name = "gemini-1.5-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={API_KEY}"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    # ツール設定（Google検索）
+    tools = []
+    if enable_search:
+        tools = [{"googleSearch": {}}]
+
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "tools": tools,
+        "generationConfig": {
+            "temperature": 0.7,
+            "responseMimeType": "application/json"
+        }
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        if response.status_code != 200:
+            print(f"⚠️ Gemini API Error: {response.status_code} {response.text}", flush=True)
+            # 検索ツールが原因でエラーになった場合、検索なしでリトライするロジック
+            if enable_search and response.status_code == 400:
+                print("🔄 検索ツールを除外してリトライします...", flush=True)
+                return call_gemini_api(prompt, enable_search=False)
+            return None
+            
+        data = response.json()
+        # レスポンスからテキストを抽出
+        if "candidates" in data and len(data["candidates"]) > 0:
+            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            return content
+        else:
+            print(f"⚠️ Gemini API Empty Response: {data}", flush=True)
+            return None
+
+    except Exception as e:
+        print(f"⚠️ Network Error: {e}", flush=True)
+        return None
+
+# --- AI生成 (検索＆コンサル) ---
 def get_ai_advice(area_key, area_data, target_date, jma_data):
     if not API_KEY: return None
 
@@ -139,12 +194,12 @@ def get_ai_advice(area_key, area_data, target_date, jma_data):
     warning_text = jma_data.get("warning", "特になし")
     rain_display = f"午前{rain_am}% / 午後{rain_pm}%"
 
-    print(f"🤖 [AI生成] {area_data['name']} / {full_date} ...", flush=True)
+    print(f"🤖 [AI検索＆コンサル] {area_data['name']} / {full_date} ...", flush=True)
 
-    # プロンプト共通部分
-    base_prompt = f"""
+    # プロンプト
+    prompt = f"""
     あなたは世界屈指の戦略経営コンサルタントです。
-    以下のエリアの社会的動向（イベント、インバウンド、天候）を考慮し、ファクトに基づいた戦略を提案してください。
+    Google検索ツールを使って、以下のエリアの最新イベントや動向を検索し、ファクトに基づいた戦略を提案してください。
 
     【ターゲット】
     エリア: {area_data['name']} ({area_data['feature']})
@@ -154,13 +209,14 @@ def get_ai_advice(area_key, area_data, target_date, jma_data):
     天気: {w_emoji}, 気温: 最高{high_temp}℃/最低{low_temp}℃, 降水: {rain_display}, 警報: {warning_text}
 
     【重要指令】
-    1. **挨拶不要:** いきなり分析結果から書け。
-    2. **レポート構成:**
+    1. **Google検索を実行せよ:** "{area_data['name']} イベント {date_str}", "{area_data['name']} 混雑予想" などを検索せよ。
+    2. **挨拶不要:** いきなり分析結果から書け。
+    3. **レポート構成:**
        - タイトル: 「{date_display}のレポート」
        - 結論: 1行でズバリ
-       - 要因: 推測されるイベントや動向を箇条書き
+       - 要因: 検索で得た事実を箇条書き
        - 戦略: 各職種へのアクションプラン
-    3. **出力形式:** 必ず以下のJSONフォーマットのみを出力せよ。Markdownタグは不要。
+    4. **出力形式:** 必ず以下のJSONフォーマットのみを出力せよ。Markdownタグは不要。
 
     {{
         "date": "{full_date}",
@@ -171,7 +227,7 @@ def get_ai_advice(area_key, area_data, target_date, jma_data):
             "high": "{high_temp}℃", "low": "{low_temp}℃", "rain": "{rain_display}",
             "warning": "{warning_text}"
         }},
-        "daily_schedule_and_impact": "【{date_display}のレポート】\\n\\n■市場予測\\n(結論)...\\n\\n■主要因\\n・...\\n\\n■推奨戦略\\n・...", 
+        "daily_schedule_and_impact": "【{date_display}のレポート】\\n\\n■市場予測\\n(結論)...\\n\\n■主要因\\n・(イベント名など)...\\n\\n■推奨戦略\\n・...", 
         "timeline": {{
             "morning": {{ "weather": "{w_emoji}", "temp": "{low_temp}℃", "rain": "{rain_am}%", "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "...", "construction": "...", "delivery": "...", "security": "..." }} }},
             "daytime": {{ "weather": "{w_emoji}", "temp": "{high_temp}℃", "rain": "{rain_pm}%", "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "...", "construction": "...", "delivery": "...", "security": "..." }} }},
@@ -179,35 +235,17 @@ def get_ai_advice(area_key, area_data, target_date, jma_data):
         }}
     }}
     """
-
-    genai.configure(api_key=API_KEY)
     
-    # 検索ツール定義（最新の書き方: dict形式で指定）
-    # ※ライブラリのバージョンによっては辞書型で渡すのが最も安定します
-    search_tool = {"google_search_retrieval": {}}
-
-    generation_config = { "temperature": 0.7 }
-
-    # 1. まず検索ツール付きでトライ
-    try:
-        model = genai.GenerativeModel('models/gemini-2.5-flash', tools=[search_tool], generation_config=generation_config)
-        # プロンプトに検索指示を追加
-        search_prompt = base_prompt + "\n\n(可能であればGoogle検索ツールを使用し、イベント情報を補強せよ)"
-        res = model.generate_content(search_prompt)
-        json_str = extract_json_block(res.text)
-        return json.loads(json_str)
-    except Exception as e:
-        print(f"⚠️ 検索モード失敗 ({e}) -> 通常モードで再試行", flush=True)
-        
-        # 2. 失敗したらツールなしでトライ (安全装置)
+    # 直接API呼び出し
+    json_text = call_gemini_api(prompt, enable_search=True)
+    
+    if json_text:
         try:
-            model_fallback = genai.GenerativeModel('models/gemini-1.5-flash', generation_config=generation_config)
-            res = model_fallback.generate_content(base_prompt)
-            json_str = extract_json_block(res.text)
-            return json.loads(json_str)
-        except Exception as e2:
-            print(f"❌ 生成完全失敗: {e2}", flush=True)
+            return json.loads(extract_json_block(json_text))
+        except:
+            print("⚠️ JSON Parse Error", flush=True)
             return None
+    return None
 
 # --- 簡易予測 (長期・エラー時用) ---
 def get_simple_forecast(target_date):
@@ -228,7 +266,7 @@ def get_simple_forecast(target_date):
 # --- メイン ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye 30地点・完全修正版 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye 30地点・REST API直通信版 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -241,6 +279,7 @@ if __name__ == "__main__":
         for i in range(90):
             target_date = today + timedelta(days=i)
             
+            # 直近3日間
             if i < 3: 
                 data = get_ai_advice(area_key, area_data, target_date, jma_data)
                 if data:
