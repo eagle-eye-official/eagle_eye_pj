@@ -6,6 +6,10 @@ on:
     - cron: '0 20 * * *'
   workflow_dispatch: # 手動実行ボタンも有効化
 
+# ★ここを追加：書き込み権限を付与
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,14 +21,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11' # 最新ライブラリ対応のため3.11を指定
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # ★ここが最重要：GoogleのAIライブラリを最新版に強制アップデート
+        # Google AIライブラリ
         pip install -U google-generativeai
-        # その他必要なライブラリ
         pip install requests pytz
 
     - name: Run forecast script
