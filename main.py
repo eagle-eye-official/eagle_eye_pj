@@ -56,7 +56,6 @@ def get_weather_emoji(code):
         if c in [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212]: return "☁️"
         if 300 <= c < 400: return "☔"
         if 400 <= c < 500: return "⛄"
-        # OpenMeteo Codes
         if c == 0: return "☀️"
         if c in [1, 2, 3]: return "🌤️"
         if c in [45, 48]: return "🌫️"
@@ -77,24 +76,37 @@ def get_jma_full_data(area_code):
             data = json.loads(res.read().decode('utf-8'))
             if not data: return result
 
-            # 直近 (0:今日, 1:明日)
+            # 直近
             detailed = data[0]["timeSeries"]
             weathers = detailed[0]["areas"][0]["weatherCodes"]
             pops = detailed[1]["areas"][0]["pops"]
             temps_arr = detailed[2]["areas"][0]["temps"]
             
-            def get_temp_stats(t_list):
+            def get_temp_fmt(t_list):
                 valid = [float(x) for x in t_list if x != "-"]
-                return (max(valid), min(valid)) if valid else ("-", "-")
+                if not valid: return "最高気温:-℃", "最低気温:-℃"
+                return f"最高気温:{max(valid)}℃", f"最低気温:{min(valid)}℃"
 
-            t_today = temps_arr 
-            h0, l0 = get_temp_stats(t_today)
-            result["0"] = {"code": weathers[0], "pop": pops[0] if len(pops)>0 else "-", "high": h0, "low": l0}
+            def get_rain_fmt(pop_list, idx_start):
+                p_am = pop_list[idx_start] if len(pop_list) > idx_start else "-"
+                p_pm = pop_list[idx_start+1] if len(pop_list) > idx_start+1 else "-"
+                # 10%単位整形
+                def round_pop(p):
+                    try: return f"{math.ceil(int(p)/10)*10}%"
+                    except: return "-"
+                return f"午前:{round_pop(p_am)} / 午後:{round_pop(p_pm)}"
+
+            # 今日
+            h0, l0 = get_temp_fmt(temps_arr)
+            r0 = get_rain_fmt(pops, 0)
+            result["0"] = {"code": weathers[0], "pop": r0, "high": h0, "low": l0}
             
+            # 明日
             if len(weathers) > 1:
                 t_tmr = temps_arr[2:] if len(temps_arr) > 2 else []
-                h1, l1 = get_temp_stats(t_tmr) if t_tmr else ("-", "-")
-                result["1"] = {"code": weathers[1], "pop": pops[1] if len(pops)>1 else "-", "high": h1, "low": l1}
+                h1, l1 = get_temp_fmt(t_tmr)
+                r1 = get_rain_fmt(pops, 2) # 簡易的に2番目以降
+                result["1"] = {"code": weathers[1], "pop": r1, "high": h1, "low": l1}
 
             # 週間予報
             if len(data) > 1:
@@ -107,13 +119,16 @@ def get_jma_full_data(area_code):
                 for i in range(len(w_codes)):
                     k = str(i + 2) 
                     pop_val = w_pops[i] if i < len(w_pops) else "-"
-                    if pop_val == "": pop_val = "-"
+                    if pop_val != "-": pop_val = f"降水確率:{pop_val}%"
+                    
+                    t_max = w_temps_max[i] if i < len(w_temps_max) and w_temps_max[i]!="" else "-"
+                    t_min = w_temps_min[i] if i < len(w_temps_min) and w_temps_min[i]!="" else "-"
                     
                     result[k] = {
                         "code": w_codes[i],
                         "pop": pop_val,
-                        "high": w_temps_max[i] if i < len(w_temps_max) and w_temps_max[i]!="" else "-",
-                        "low": w_temps_min[i] if i < len(w_temps_min) and w_temps_min[i]!="" else "-"
+                        "high": f"最高気温:{t_max}℃",
+                        "low": f"最低気温:{t_min}℃"
                     }
     except Exception as e:
         print(f"JMA Error ({area_code}): {e}")
@@ -125,12 +140,13 @@ def get_jma_warning(area_code):
     try:
         with urllib.request.urlopen(url, timeout=5) as res:
             data = json.loads(res.read().decode('utf-8'))
+            # ヘッドラインがあれば取得
             if "headlineText" in data and data["headlineText"]:
                 return data["headlineText"]
     except: pass
     return "特になし"
 
-# 3. Open-Meteo (Null安全対策済み)
+# 3. Open-Meteo (Null安全対策 + 補完)
 def get_open_meteo_forecast(lat, lon):
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FTokyo&forecast_days=16"
     result = {}
@@ -139,30 +155,21 @@ def get_open_meteo_forecast(lat, lon):
         if res.status_code == 200:
             d = res.json().get("daily", {})
             time_list = d.get("time", [])
-            
             for i in range(len(time_list)):
                 dt = datetime.strptime(time_list[i], "%Y-%m-%d").replace(tzinfo=JST)
                 diff = (dt.date() - datetime.now(JST).date()).days
-                
                 if diff >= 0:
-                    # None対策
-                    precip = d['precipitation_sum'][i]
-                    if precip is None: precip = 0.0
+                    precip = d['precipitation_sum'][i] if d['precipitation_sum'][i] is not None else 0.0
+                    t_max = d['temperature_2m_max'][i] if d['temperature_2m_max'][i] is not None else "-"
+                    t_min = d['temperature_2m_min'][i] if d['temperature_2m_min'][i] is not None else "-"
                     
-                    t_max = d['temperature_2m_max'][i]
-                    if t_max is None: t_max = "-"
-                    
-                    t_min = d['temperature_2m_min'][i]
-                    if t_min is None: t_min = "-"
-
                     result[str(diff)] = {
                         "code": d["weathercode"][i],
-                        "pop": f"{int(precip * 5)}%", 
-                        "high": t_max,
-                        "low": t_min
+                        "pop": f"降水:{int(precip)}mm",
+                        "high": f"最高気温:{t_max}℃",
+                        "low": f"最低気温:{t_min}℃"
                     }
-    except Exception as e:
-        print(f"Open-Meteo Error: {e}")
+    except: pass
     return result
 
 # --- Gemini API ---
@@ -206,44 +213,72 @@ def extract_json_block(text):
     except: pass
     return text
 
-# --- AI生成 ---
-def get_ai_advice(area_data, target_date, weather_info, warning):
+# --- AI生成 (3層構造) ---
+def get_ai_advice(area_data, target_date, weather_info, warning, layer):
     if not API_KEY: return None
     
     date_str = target_date.strftime('%m月%d日')
     weekday = ["月","火","水","木","金","土","日"][target_date.weekday()]
+    full_date = f"{date_str} ({weekday})"
     w_emoji = get_weather_emoji(weather_info.get("code", 200))
     
-    print(f"🤖 [AI] {area_data['name']} / {date_str}...", end="", flush=True)
+    print(f"🤖 [AI-L{layer}] {area_data['name']} / {full_date}...", end="", flush=True)
     
-    search_prompt = f"""
-    エリア: {area_data['name']}
-    日付: 2026年{date_str}
-    
-    このエリアのイベント、混雑、ニュースを検索し、箇条書きで教えて。
-    """
+    # --- 検索プロンプト切り替え ---
+    search_prompt = ""
+    if layer == 1: # 直近3日
+        search_prompt = f"""
+        エリア: {area_data['name']}
+        日付: 2026年{full_date}
+        このエリアの「イベント」「交通規制」「電車の遅延」「道路の混雑」「ニュース」を詳しく検索して。
+        """
+    elif layer == 2: # 週間
+        search_prompt = f"""
+        エリア: {area_data['name']}
+        日付: 2026年{full_date}
+        この日の大きな「イベント」や「交通規制」があれば検索して。
+        """
+    else: # 長期
+        search_prompt = f"""
+        エリア: {area_data['name']}
+        時期: 2026年{full_date}
+        
+        【重要】以下の気象庁の長期予報解説ページを読み込み、この地域の向こう3ヶ月の天候傾向を解読して。
+        URL: https://www.data.jma.go.jp/cpd/longfcst/kaisetsu/?term=P3M
+        また、この時期の例年のイベントや交通傾向も検索して。
+        """
+
     search_res = call_gemini_search(search_prompt) or "特になし"
     
+    # --- 生成プロンプト ---
     json_prompt = f"""
-    あなたは戦略コンサルタントです。以下の情報から、各職種への戦略レポートを作成してください。
+    あなたは戦略コンサルタントです。以下の情報からレポートを作成してください。
 
     【条件】
-    エリア: {area_data['name']} ({area_data['feature']})
-    日付: {date_str} ({weekday})
-    天気: {w_emoji}, 気温{weather_info.get('high')}/{weather_info.get('low')}, 警報:{warning}
-    検索情報: {search_res}
+    エリア: {area_data['name']}
+    日付: {full_date}
+    天気: {w_emoji}
+    気温: {weather_info.get('high')} / {weather_info.get('low')}
+    検索結果: {search_res}
 
     【指令】
-    1. **挨拶禁止:** いきなり本題に入れ。
-    2. **総括:** 1行でズバリ。「〜のため、需要は〇〇です」。
-    3. **戦略:** 「〜してください」ではなく「〜が有効です」「〜を推奨します」という提案口調。
-    4. **構成:** Markdownで見やすく（**見出し**など使用）。
-    
+    1. **タイトル:** 「{date_str}のレポート」とする。
+    2. **Event & Traffic:** 検索結果からイベント名(場所/時間)や交通情報を箇条書き。
+    3. **総括:** 1行でズバリ。「〜のため、需要は〇〇です」。
+    4. **戦略:** 「〜が有効です」という提案口調。
+    5. **天気情報:** 8日後以降は、解読した長期予報の傾向のみを書き、気温や天気マークについての言及は最低限にせよ。
+
     【JSON出力】
     {{
-        "date": "{date_str} ({weekday})", "rank": "S/A/B/C",
-        "weather_overview": {{ "condition": "{w_emoji}", "high": "{weather_info.get('high')}", "low": "{weather_info.get('low')}", "rain": "{weather_info.get('pop')}", "warning": "{warning}" }},
-        "daily_schedule_and_impact": "【{date_str}のレポート】\\n\\n**■総括**\\n(総括文)...\\n\\n**■主要因**\\n・(検索結果)...\\n\\n**■推奨戦略**\\n・...", 
+        "date": "{full_date}", "rank": "S/A/B/C",
+        "weather_overview": {{ 
+            "condition": "{w_emoji}", 
+            "high": "{weather_info.get('high')}", 
+            "low": "{weather_info.get('low')}", 
+            "rain": "{weather_info.get('pop')}", 
+            "warning": "{warning}" 
+        }},
+        "daily_schedule_and_impact": "【{date_str}のレポート】\\n\\n**■Event & Traffic**\\n(検索結果)...\\n\\n**■総括**\\n(総括文)...\\n\\n**■推奨戦略**\\n・...", 
         "timeline": {{
             "morning": {{ "weather": "{w_emoji}", "temp": "{weather_info.get('low')}", "rain": "-", "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "...", "construction": "...", "delivery": "...", "security": "..." }} }},
             "daytime": {{ "weather": "{w_emoji}", "temp": "{weather_info.get('high')}", "rain": "-", "advice": {{ "taxi": "...", "restaurant": "...", "hotel": "...", "shop": "...", "logistics": "...", "conveni": "...", "construction": "...", "delivery": "...", "security": "..." }} }},
@@ -263,18 +298,17 @@ def get_simple_data(target_date, weather_info):
     date_str = target_date.strftime('%m月%d日')
     weekday = ["月","火","水","木","金","土","日"][target_date.weekday()]
     w_emoji = get_weather_emoji(weather_info.get("code", 200))
-    
     return {
         "date": f"{date_str} ({weekday})", "rank": "C",
         "weather_overview": { "condition": w_emoji, "high": weather_info.get('high','-'), "low": weather_info.get('low','-'), "rain": "-", "warning": "-" },
-        "daily_schedule_and_impact": f"【{date_str}の予報】\n平年並みの傾向です。詳細は直近に更新されます。",
+        "daily_schedule_and_impact": f"【{date_str}の予報】\nデータ更新中...",
         "timeline": None
     }
 
 # --- メイン処理 ---
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye v1.0 Hybrid Logic (3-Day AI) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye v1.0 Final (3-Layer Hybrid) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     
@@ -290,27 +324,35 @@ if __name__ == "__main__":
             target_date = today + timedelta(days=i)
             idx_str = str(i)
             
-            # ハイブリッド統合 (JMA直近 > JMA週間 > OpenMeteo > 統計推測)
+            # --- データ統合 (3層) ---
+            layer = 3 # デフォルト長期
             weather_info = {}
-            if idx_str in jma_data:
-                weather_info = jma_data[idx_str]
-            elif idx_str in om_data:
-                weather_info = om_data[idx_str]
-            else:
-                # 16日以降は統計的推測 (15日目を流用)
-                weather_info = om_data.get("15", {"code": 200, "high": "-", "low": "-"})
-
-            # ★修正: 直近3日間 (i < 3) はAI分析を実行
-            if i < 3: 
-                data = get_ai_advice(area, target_date, weather_info, warning)
-                if data:
-                    area_forecasts.append(data)
-                    print(" OK")
-                    time.sleep(2)
+            
+            if i <= 2: # 直近3日 (0,1,2) -> JMA詳細
+                layer = 1
+                weather_info = jma_data.get(idx_str, om_data.get(idx_str, {}))
+            elif i <= 6: # 週間 (3-6) -> JMA週間
+                layer = 2
+                # JMA週間データがない場合はOpenMeteoで補完
+                if str(i) in jma_data:
+                    weather_info = jma_data[str(i)]
                 else:
-                    print(" Error->Simple")
-                    area_forecasts.append(get_simple_data(target_date, weather_info))
+                    weather_info = om_data.get(idx_str, {})
+            else: # 長期 (7-89) -> OpenMeteo + JMA長期URL
+                layer = 3
+                # 16日以降は15日目を流用 (統計推測)
+                ref_idx = str(i) if i < 16 else "15"
+                weather_info = om_data.get(ref_idx, {"code": 200, "high": "-", "low": "-"})
+
+            # AI生成実行
+            data = get_ai_advice(area, target_date, weather_info, warning, layer)
+            
+            if data:
+                area_forecasts.append(data)
+                print(" OK")
+                time.sleep(1.5) # 負荷調整
             else:
+                print(" -> Simple")
                 area_forecasts.append(get_simple_data(target_date, weather_info))
         
         master_data[key] = area_forecasts
