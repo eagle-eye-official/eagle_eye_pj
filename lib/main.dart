@@ -719,9 +719,9 @@ class _CalendarPageState extends State<CalendarPage> {
         infoMap[dt] = {
           "rank": item['rank'],
           "cond": w['condition'] ?? "",
-          "rain": w['rain'] ?? "", // ★追加
-          "high": w['high'] ?? "", // ★追加
-          "low": w['low'] ?? "",   // ★追加
+          "rain": w['rain'] ?? "", 
+          "high": w['high'] ?? "", 
+          "low": w['low'] ?? "",   
         };
       } catch (e) {}
     }
