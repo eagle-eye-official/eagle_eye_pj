@@ -101,7 +101,7 @@ class EagleEyeApp extends StatelessWidget {
   }
 }
 
-// --- スプラッシュ (アニメーション廃止・静止画) ---
+// --- スプラッシュ ---
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
   @override
