@@ -587,10 +587,8 @@ class DashboardPage extends StatelessWidget {
               Text(emoji, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                 Row(children: [
-                   const Icon(Icons.thermostat, size: 14, color: Colors.grey),
-                   Text(temp, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                 ]),
+                 // ★修正: 気温をそのまま表示 (最高XX / 最低YY という文字列が入ってくる)
+                 Text(temp, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                  if(rain != "-")
                  Row(children: [
                    const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
@@ -758,6 +756,9 @@ class _CalendarPageState extends State<CalendarPage> {
                   const SizedBox(height: 10),
                   _SimpleRankCard(data: _selectedDayData!),
                   const SizedBox(height: 20),
+                  // ★追加: カレンダー下部にもイベント情報を表示
+                  _buildEventTrafficInfo(_selectedDayData!),
+                  const SizedBox(height: 20),
                   _SimpleTimeline(data: _selectedDayData!, job: widget.job),
                 ],
               ),
@@ -765,6 +766,44 @@ class _CalendarPageState extends State<CalendarPage> {
           ] else ...[
              const Padding(padding: EdgeInsets.all(20.0), child: Text("データなし", style: TextStyle(color: Colors.grey))),
           ]
+        ],
+      ),
+    );
+  }
+
+  // ★追加: カレンダー下部のイベント情報表示用
+  Widget _buildEventTrafficInfo(Map<String, dynamic> data) {
+    final info = data['daily_schedule_and_impact'] as String?;
+    if (info == null) return const SizedBox.shrink();
+    
+    String eventContent = "";
+    if (info.contains("**■Event & Traffic**")) {
+      final parts = info.split("**■Event & Traffic**");
+      if (parts.length > 1) {
+        eventContent = parts[1].split("**■")[0].trim();
+      }
+    }
+
+    if (eventContent.isEmpty || eventContent == "特になし") return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.event_note, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text("イベント・交通情報", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
+          ]),
+          const SizedBox(height: 10),
+          Text(eventContent, style: const TextStyle(fontSize: 14, height: 1.5)),
         ],
       ),
     );
@@ -791,12 +830,13 @@ class _CalendarPageState extends State<CalendarPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(info['high']!.replaceAll("最高気温:", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
+                // "最高" "℃" を除去して数字だけにする
+                Text(info['high']!.replaceAll("最高", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
                 const Text("/", style: TextStyle(fontSize: 8)),
-                Text(info['low']!.replaceAll("最低気温:", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
+                Text(info['low']!.replaceAll("最低", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
               ],
             ),
-            Text(info['rain']!.split('/')[0], style: const TextStyle(fontSize: 8, color: Colors.lightBlue)), // 降水確率(簡易)
+            Text(info['rain']!.split('/')[0], style: const TextStyle(fontSize: 8, color: Colors.lightBlue)), // 降水確率
             Container(width: 4, height: 4, decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: info['rank']=="S"?AppColors.rankS : (info['rank']=="A"?AppColors.rankA : (info['rank']=="B"?AppColors.rankB : AppColors.rankC))
