@@ -21,39 +21,40 @@ HOLIDAYS_2026 = {
     "2026-10-12", "2026-11-03", "2026-11-23", "2026-11-24"
 }
 
-# --- 戦略的30地点定義 ---
+# --- 戦略的30地点定義 (AMeDASコード追加) ---
+# amedas_code: そのエリアの代表的な観測所コード
 TARGET_AREAS = {
-    "hakodate": { "name": "北海道 函館", "jma_code": "014100", "lat": 41.7687, "lon": 140.7288, "feature": "観光・夜景・海鮮。冬は雪の影響大。クルーズ船寄港地。" },
-    "sapporo": { "name": "北海道 札幌", "jma_code": "016000", "lat": 43.0618, "lon": 141.3545, "feature": "北日本最大の歓楽街ススキノ。雪まつり等のイベント。" },
-    "sendai": { "name": "宮城 仙台", "jma_code": "040000", "lat": 38.2682, "lon": 140.8694, "feature": "東北のビジネス拠点。国分町の夜間需要。" },
-    "tokyo_marunouchi": { "name": "東京 丸の内・東京駅", "jma_code": "130000", "lat": 35.6812, "lon": 139.7671, "feature": "日本のビジネス中心地。出張・接待・富裕層需要。" },
-    "tokyo_ginza": { "name": "東京 銀座・新橋", "jma_code": "130000", "lat": 35.6701, "lon": 139.7630, "feature": "夜の接待需要とサラリーマンの聖地。高級店多し。" },
-    "tokyo_shinjuku": { "name": "東京 新宿・歌舞伎町", "jma_code": "130000", "lat": 35.6914, "lon": 139.7020, "feature": "世界一の乗降客数と眠らない街。タクシー需要最強。" },
-    "tokyo_shibuya": { "name": "東京 渋谷・原宿", "jma_code": "130000", "lat": 35.6580, "lon": 139.7016, "feature": "若者とインバウンド、IT企業の街。トレンド発信地。" },
-    "tokyo_roppongi": { "name": "東京 六本木・赤坂", "jma_code": "130000", "lat": 35.6641, "lon": 139.7336, "feature": "富裕層、外国人、メディア関係者の夜の移動。" },
-    "tokyo_ikebukuro": { "name": "東京 池袋", "jma_code": "130000", "lat": 35.7295, "lon": 139.7109, "feature": "埼玉方面への玄関口、サブカルチャー。" },
-    "tokyo_shinagawa": { "name": "東京 品川・高輪", "jma_code": "130000", "lat": 35.6285, "lon": 139.7397, "feature": "リニア・新幹線拠点。ホテルとビジネス需要。" },
-    "tokyo_ueno": { "name": "東京 上野", "jma_code": "130000", "lat": 35.7141, "lon": 139.7741, "feature": "北の玄関口、美術館、アメ横。観光客多し。" },
-    "tokyo_asakusa": { "name": "東京 浅草", "jma_code": "130000", "lat": 35.7119, "lon": 139.7983, "feature": "インバウンド観光の絶対王者。人力車や食べ歩き。" },
-    "tokyo_akihabara": { "name": "東京 秋葉原・神田", "jma_code": "130000", "lat": 35.6983, "lon": 139.7731, "feature": "オタク文化とビジネスの融合。電気街。" },
-    "tokyo_omotesando": { "name": "東京 表参道・青山", "jma_code": "130000", "lat": 35.6652, "lon": 139.7123, "feature": "ファッション、富裕層のランチ・買い物需要。" },
-    "tokyo_ebisu": { "name": "東京 恵比寿・代官山", "jma_code": "130000", "lat": 35.6467, "lon": 139.7101, "feature": "オシャレな飲食需要、タクシー利用率高め。" },
-    "tokyo_odaiba": { "name": "東京 お台場・有明", "jma_code": "130000", "lat": 35.6278, "lon": 139.7745, "feature": "ビッグサイトのイベント、観光、デートスポット。" },
-    "tokyo_toyosu": { "name": "東京 豊洲・湾岸", "jma_code": "130000", "lat": 35.6568, "lon": 139.7960, "feature": "タワマン住民の生活需要と市場関係。" },
-    "tokyo_haneda": { "name": "東京 羽田空港エリア", "jma_code": "130000", "lat": 35.5494, "lon": 139.7798, "feature": "旅行・出張客の送迎需要。天候による遅延影響。" },
-    "chiba_maihama": { "name": "千葉 舞浜(ディズニー)", "jma_code": "120000", "lat": 35.6329, "lon": 139.8804, "feature": "ディズニーリゾート。イベントと天候への依存度極大。" },
-    "kanagawa_yokohama": { "name": "神奈川 横浜", "jma_code": "140000", "lat": 35.4437, "lon": 139.6380, "feature": "みなとみらい観光とビジネスが融合。中華街。" },
-    "aichi_nagoya": { "name": "愛知 名古屋", "jma_code": "230000", "lat": 35.1815, "lon": 136.9066, "feature": "トヨタ系ビジネスと独自の飲食文化。車社会。" },
-    "osaka_kita": { "name": "大阪 キタ (梅田)", "jma_code": "270000", "lat": 34.7025, "lon": 135.4959, "feature": "西日本最大のビジネス街兼繁華街。地下街発達。" },
-    "osaka_minami": { "name": "大阪 ミナミ (難波)", "jma_code": "270000", "lat": 34.6655, "lon": 135.5011, "feature": "インバウンド人気No.1。食い倒れの街。" },
-    "osaka_hokusetsu": { "name": "大阪 北摂", "jma_code": "270000", "lat": 34.7809, "lon": 135.4624, "feature": "伊丹空港/新幹線・ビジネス・高級住宅街。" },
-    "osaka_bay": { "name": "大阪 ベイエリア(USJ)", "jma_code": "270000", "lat": 34.6654, "lon": 135.4323, "feature": "USJや海遊館。海風強くイベント依存度高い。" },
-    "osaka_tennoji": { "name": "大阪 天王寺・阿倍野", "jma_code": "270000", "lat": 34.6477, "lon": 135.5135, "feature": "ハルカス/通天閣。新旧文化の融合。" },
-    "kyoto_shijo": { "name": "京都 四条河原町", "jma_code": "260000", "lat": 35.0037, "lon": 135.7706, "feature": "世界最強の観光都市。インバウンド需要が桁違い。" },
-    "hyogo_kobe": { "name": "兵庫 神戸(三宮)", "jma_code": "280000", "lat": 34.6946, "lon": 135.1956, "feature": "オシャレな港町。観光とビジネス。" },
-    "hiroshima": { "name": "広島", "jma_code": "340000", "lat": 34.3853, "lon": 132.4553, "feature": "平和公園・宮島。欧米系インバウンド多い。" },
-    "fukuoka": { "name": "福岡 博多・中洲", "jma_code": "400000", "lat": 33.5902, "lon": 130.4017, "feature": "アジアの玄関口。屋台文化など夜の需要が強い。" },
-    "okinawa_naha": { "name": "沖縄 那覇", "jma_code": "471000", "lat": 26.2124, "lon": 127.6809, "feature": "国際通り。観光客メイン。台風等の天候影響大。" },
+    "hakodate": { "name": "北海道 函館", "jma_code": "014100", "amedas_code": "23411", "lat": 41.7687, "lon": 140.7288, "feature": "観光・夜景・海鮮。冬は雪の影響大。クルーズ船寄港地。" },
+    "sapporo": { "name": "北海道 札幌", "jma_code": "016000", "amedas_code": "14163", "lat": 43.0618, "lon": 141.3545, "feature": "北日本最大の歓楽街ススキノ。雪まつり等のイベント。" },
+    "sendai": { "name": "宮城 仙台", "jma_code": "040000", "amedas_code": "34392", "lat": 38.2682, "lon": 140.8694, "feature": "東北のビジネス拠点。国分町の夜間需要。" },
+    "tokyo_marunouchi": { "name": "東京 丸の内・東京駅", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6812, "lon": 139.7671, "feature": "日本のビジネス中心地。出張・接待・富裕層需要。" },
+    "tokyo_ginza": { "name": "東京 銀座・新橋", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6701, "lon": 139.7630, "feature": "夜の接待需要とサラリーマンの聖地。高級店多し。" },
+    "tokyo_shinjuku": { "name": "東京 新宿・歌舞伎町", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6914, "lon": 139.7020, "feature": "世界一の乗降客数と眠らない街。タクシー需要最強。" },
+    "tokyo_shibuya": { "name": "東京 渋谷・原宿", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6580, "lon": 139.7016, "feature": "若者とインバウンド、IT企業の街。トレンド発信地。" },
+    "tokyo_roppongi": { "name": "東京 六本木・赤坂", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6641, "lon": 139.7336, "feature": "富裕層、外国人、メディア関係者の夜の移動。" },
+    "tokyo_ikebukuro": { "name": "東京 池袋", "jma_code": "130000", "amedas_code": "44132", "lat": 35.7295, "lon": 139.7109, "feature": "埼玉方面への玄関口、サブカルチャー。" },
+    "tokyo_shinagawa": { "name": "東京 品川・高輪", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6285, "lon": 139.7397, "feature": "リニア・新幹線拠点。ホテルとビジネス需要。" },
+    "tokyo_ueno": { "name": "東京 上野", "jma_code": "130000", "amedas_code": "44132", "lat": 35.7141, "lon": 139.7741, "feature": "北の玄関口、美術館、アメ横。観光客多し。" },
+    "tokyo_asakusa": { "name": "東京 浅草", "jma_code": "130000", "amedas_code": "44132", "lat": 35.7119, "lon": 139.7983, "feature": "インバウンド観光の絶対王者。人力車や食べ歩き。" },
+    "tokyo_akihabara": { "name": "東京 秋葉原・神田", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6983, "lon": 139.7731, "feature": "オタク文化とビジネスの融合。電気街。" },
+    "tokyo_omotesando": { "name": "東京 表参道・青山", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6652, "lon": 139.7123, "feature": "ファッション、富裕層のランチ・買い物需要。" },
+    "tokyo_ebisu": { "name": "東京 恵比寿・代官山", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6467, "lon": 139.7101, "feature": "オシャレな飲食需要、タクシー利用率高め。" },
+    "tokyo_odaiba": { "name": "東京 お台場・有明", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6278, "lon": 139.7745, "feature": "ビッグサイトのイベント、観光、デートスポット。" },
+    "tokyo_toyosu": { "name": "東京 豊洲・湾岸", "jma_code": "130000", "amedas_code": "44132", "lat": 35.6568, "lon": 139.7960, "feature": "タワマン住民の生活需要と市場関係。" },
+    "tokyo_haneda": { "name": "東京 羽田空港エリア", "jma_code": "130000", "amedas_code": "44166", "lat": 35.5494, "lon": 139.7798, "feature": "旅行・出張客の送迎需要。天候による遅延影響。" },
+    "chiba_maihama": { "name": "千葉 舞浜(ディズニー)", "jma_code": "120000", "amedas_code": "45156", "lat": 35.6329, "lon": 139.8804, "feature": "ディズニーリゾート。イベントと天候への依存度極大。" },
+    "kanagawa_yokohama": { "name": "神奈川 横浜", "jma_code": "140000", "amedas_code": "46106", "lat": 35.4437, "lon": 139.6380, "feature": "みなとみらい観光とビジネスが融合。中華街。" },
+    "aichi_nagoya": { "name": "愛知 名古屋", "jma_code": "230000", "amedas_code": "51106", "lat": 35.1815, "lon": 136.9066, "feature": "トヨタ系ビジネスと独自の飲食文化。車社会。" },
+    "osaka_kita": { "name": "大阪 キタ (梅田)", "jma_code": "270000", "amedas_code": "62078", "lat": 34.7025, "lon": 135.4959, "feature": "西日本最大のビジネス街兼繁華街。地下街発達。" },
+    "osaka_minami": { "name": "大阪 ミナミ (難波)", "jma_code": "270000", "amedas_code": "62078", "lat": 34.6655, "lon": 135.5011, "feature": "インバウンド人気No.1。食い倒れの街。" },
+    "osaka_hokusetsu": { "name": "大阪 北摂", "jma_code": "270000", "amedas_code": "62078", "lat": 34.7809, "lon": 135.4624, "feature": "伊丹空港/新幹線・ビジネス・高級住宅街。" },
+    "osaka_bay": { "name": "大阪 ベイエリア(USJ)", "jma_code": "270000", "amedas_code": "62078", "lat": 34.6654, "lon": 135.4323, "feature": "USJや海遊館。海風強くイベント依存度高い。" },
+    "osaka_tennoji": { "name": "大阪 天王寺・阿倍野", "jma_code": "270000", "amedas_code": "62078", "lat": 34.6477, "lon": 135.5135, "feature": "ハルカス/通天閣。新旧文化の融合。" },
+    "kyoto_shijo": { "name": "京都 四条河原町", "jma_code": "260000", "amedas_code": "61286", "lat": 35.0037, "lon": 135.7706, "feature": "世界最強の観光都市。インバウンド需要が桁違い。" },
+    "hyogo_kobe": { "name": "兵庫 神戸(三宮)", "jma_code": "280000", "amedas_code": "63518", "lat": 34.6946, "lon": 135.1956, "feature": "オシャレな港町。観光とビジネス。" },
+    "hiroshima": { "name": "広島", "jma_code": "340000", "amedas_code": "67437", "lat": 34.3853, "lon": 132.4553, "feature": "平和公園・宮島。欧米系インバウンド多い。" },
+    "fukuoka": { "name": "福岡 博多・中洲", "jma_code": "400000", "amedas_code": "82182", "lat": 33.5902, "lon": 130.4017, "feature": "アジアの玄関口。屋台文化など夜の需要が強い。" },
+    "okinawa_naha": { "name": "沖縄 那覇", "jma_code": "471000", "amedas_code": "91197", "lat": 26.2124, "lon": 127.6809, "feature": "国際通り。観光客メイン。台風等の天候影響大。" },
 }
 
 # --- 天気予報コード変換 ---
@@ -74,7 +75,33 @@ def get_weather_emoji(code):
     except: pass
     return "☁️"
 
-# --- JMA データ取得機能 (気温バグ完全修正版) ---
+# --- AMeDAS 実況値取得 (アメダス連携) ---
+def get_amedas_daily_stats(amedas_code):
+    """
+    今日0時から現在までのアメダス実測値を取得し、本当の最高/最低気温を算出する。
+    """
+    today_str = datetime.now(JST).strftime('%Y%m%d')
+    url = f"https://www.jma.go.jp/bosai/amedas/data/point/{amedas_code}/{today_str}.json"
+    
+    try:
+        with urllib.request.urlopen(url, timeout=5) as res:
+            data = json.loads(res.read().decode('utf-8'))
+            
+            # tempキーの値リスト: [気温, フラグ]
+            temps = []
+            for k, v in data.items():
+                if "temp" in v and v["temp"][0] is not None:
+                    temps.append(v["temp"][0])
+            
+            if temps:
+                return {"max": max(temps), "min": min(temps)}
+    except Exception as e:
+        # print(f"AMeDAS Error: {e}") 
+        pass
+    
+    return None
+
+# --- JMA データ取得機能 ---
 def get_jma_forecast_data(area_code):
     forecast_url = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{area_code}.json"
     warning_url = f"https://www.jma.go.jp/bosai/warning/data/warning/{area_code}.json"
@@ -85,7 +112,7 @@ def get_jma_forecast_data(area_code):
         with urllib.request.urlopen(forecast_url, timeout=15) as res:
             data = json.loads(res.read().decode('utf-8'))
             
-            # --- 詳細予報 (data[0]) 時系列データ ---
+            # --- 詳細予報 (data[0]) ---
             ts_weather = data[0]["timeSeries"][0]
             codes = ts_weather["areas"][0]["weatherCodes"]
             dates_w = ts_weather["timeDefines"]
@@ -94,7 +121,7 @@ def get_jma_forecast_data(area_code):
                 if date_key not in daily_db: daily_db[date_key] = {}
                 daily_db[date_key]["code"] = codes[i]
 
-            # 降水確率 (時間帯別抽出)
+            # 降水確率
             ts_rain = data[0]["timeSeries"][1]
             pops = ts_rain["areas"][0]["pops"]
             dates_r = ts_rain["timeDefines"]
@@ -106,7 +133,7 @@ def get_jma_forecast_data(area_code):
                 hour = int(time_part.split(":")[0])
                 if "rain_hourly" not in daily_db[date_key]: daily_db[date_key]["rain_hourly"] = {}
                 
-                # 時間帯マッピング (06-12, 12-18, 18-24)
+                # 時間帯別 (午前/午後と書かず、%数値のみ)
                 if 5 <= hour < 11: daily_db[date_key]["rain_hourly"]["morning"] = pops[i] + "%"
                 elif 11 <= hour < 17: daily_db[date_key]["rain_hourly"]["day"] = pops[i] + "%"
                 elif 17 <= hour <= 23: daily_db[date_key]["rain_hourly"]["night"] = pops[i] + "%"
@@ -114,7 +141,7 @@ def get_jma_forecast_data(area_code):
                 if "rain_raw" not in daily_db[date_key]: daily_db[date_key]["rain_raw"] = []
                 daily_db[date_key]["rain_raw"].append(pops[i])
 
-            # 気温 (時系列: 朝/昼/夜のマッピング用)
+            # 気温 (時系列)
             ts_temp = data[0]["timeSeries"][2]
             temps = ts_temp["areas"][0]["temps"]
             dates_t = ts_temp["timeDefines"]
@@ -126,7 +153,7 @@ def get_jma_forecast_data(area_code):
                 hour = int(time_part.split(":")[0])
                 if "temp_hourly" not in daily_db[date_key]: daily_db[date_key]["temp_hourly"] = {}
                 
-                # 時間に近い気温を保持 (朝9時, 昼15時, 夜21時付近)
+                # 時間に近い気温
                 if 8 <= hour <= 10: daily_db[date_key]["temp_hourly"]["morning"] = temps[i]
                 elif 14 <= hour <= 16: daily_db[date_key]["temp_hourly"]["day"] = temps[i]
                 elif 20 <= hour <= 22: daily_db[date_key]["temp_hourly"]["night"] = temps[i]
@@ -134,7 +161,7 @@ def get_jma_forecast_data(area_code):
                 if "temp_raw" not in daily_db[date_key]: daily_db[date_key]["temp_raw"] = []
                 daily_db[date_key]["temp_raw"].append(temps[i])
 
-            # --- 週間/日別予報 (data[1]) ---
+            # --- 週間予報 (data[1]) ---
             if len(data) > 1:
                 weekly = data[1]["timeSeries"]
                 dates_wk = weekly[0]["timeDefines"]
@@ -152,7 +179,6 @@ def get_jma_forecast_data(area_code):
                     val = w_pops[i] if i < len(w_pops) else "-"
                     if val != "-": 
                         if "rain_raw" not in daily_db[date_key]: daily_db[date_key]["rain_raw"] = [val]
-                        # 週間予報の確率は1日1つ -> 時間帯別に同じ値を入れる
                         if "rain_hourly" not in daily_db[date_key]: 
                             daily_db[date_key]["rain_hourly"] = {"morning": val+"%", "day": val+"%", "night": val+"%"}
                     
@@ -236,6 +262,9 @@ def get_long_term_text_safe(area_name):
 def get_ai_advice(area_key, area_data, target_date, daily_db, warning_text):
     if not API_KEY: return None
 
+    today_dt = datetime.now(JST)
+    is_today = (target_date.date() == today_dt.date())
+    
     date_str = target_date.strftime('%Y-%m-%d')
     date_display = target_date.strftime('%m月%d日')
     weekday_str = ["月", "火", "水", "木", "金", "土", "日"][target_date.weekday()]
@@ -245,37 +274,45 @@ def get_ai_advice(area_key, area_data, target_date, daily_db, warning_text):
     w_code = day_data.get("code", "200")
     w_emoji = get_weather_emoji(w_code)
     
-    # --- 【修正】気温決定ロジック (同一値回避・Max/Min再計算) ---
+    # --- 【ハイブリッド気温ロジック】 ---
     summary = day_data.get("temp_summary", {})
     high_val = summary.get("max")
     low_val = summary.get("min")
     
-    # 時系列データ取得
+    # (1) 予報データからの取得・補完
     t_raw = day_data.get("temp_raw", [])
     valid_t = []
     for x in t_raw:
         try: valid_t.append(float(x))
         except: pass
     
-    # サマリーがない、または不足している場合、時系列から再計算
     if not high_val or not low_val:
         if valid_t:
             if not high_val: high_val = max(valid_t)
             if not low_val: low_val = min(valid_t)
-    
-    # それでも値がない場合は "-"
+
+    # (2) 今日なら、アメダス実測値で補完・上書き (救済措置)
+    if is_today:
+        amedas_stats = get_amedas_daily_stats(area_data["amedas_code"])
+        if amedas_stats:
+            # 予報値がない、または予報値がおかしい(同値)場合、または実測の方が極端な場合
+            # 特に「最低気温」は朝の実測を使うべき
+            actual_min = amedas_stats["min"]
+            actual_max = amedas_stats["max"]
+            
+            # 最低気温: 予報がない or 予報が高い(現在の気温になっている)場合、実測を採用
+            if low_val is None or (low_val > actual_min): 
+                low_val = actual_min
+            
+            # 最高気温: 予報がない or 実測の方が高い場合(気温上昇中)、実測を採用
+            if high_val is None or (actual_max > high_val):
+                high_val = actual_max
+
+    # 文字列化 (Noneなら "-" だが、アメダス連携でほぼ回避されるはず)
     high_temp = f"{high_val}℃" if high_val is not None else "-"
     low_temp = f"{low_val}℃" if low_val is not None else "-"
     
-    # 【重要】最高と最低が全く同じ値で、かつ "-" でない場合
-    # (例: 朝のデータが消えて現在の気温しか残っていない場合)
-    if high_temp == low_temp and high_temp != "-":
-        # 時系列データが複数あるのに同じ値なら異常ではないが、
-        # 1つしかない(valid_tが1個)なら、それは「現在気温」であって最低気温ではない可能性が高い
-        if len(valid_t) <= 1:
-            low_temp = "-" # 最低気温は不明とする
-
-    # --- 降水確率 (全体表示用) ---
+    # --- 降水確率 ---
     r_raw = day_data.get("rain_raw", [])
     if len(r_raw) >= 2:
         rain_display = f"午前{r_raw[0]}% / 午後{r_raw[1]}%"
@@ -284,18 +321,17 @@ def get_ai_advice(area_key, area_data, target_date, daily_db, warning_text):
     else:
         rain_display = "-%"
 
-    # --- 【修正】タイムライン用データ (時間帯別) ---
+    # --- タイムライン詳細 (時間帯別) ---
     r_hourly = day_data.get("rain_hourly", {})
     r_m = r_hourly.get("morning", "-")
     r_d = r_hourly.get("day", "-")
     r_n = r_hourly.get("night", "-")
-    
-    # 欠損補完 (全体値があればそれを使う)
+    # 欠損時は全体値で埋める
     if r_m == "-" and len(r_raw) >= 1: r_m = f"{r_raw[0]}%"
-    if r_d == "-" and len(r_raw) >= 1: r_d = f"{r_raw[0]}%" # 明後日などは1つしかない
+    if r_d == "-" and len(r_raw) >= 1: r_d = f"{r_raw[0]}%"
     if r_n == "-" and len(r_raw) >= 1: r_n = f"{r_raw[0]}%"
 
-    # タイムライン用気温 (時系列から近い時間を採用)
+    # タイムライン気温 (時系列 or 代表値)
     t_hourly = day_data.get("temp_hourly", {})
     t_m = f"{t_hourly.get('morning', high_temp)}℃"
     t_d = f"{t_hourly.get('day', high_temp)}℃"
@@ -314,7 +350,7 @@ def get_ai_advice(area_key, area_data, target_date, daily_db, warning_text):
     print("📝", end="", flush=True)
     
     json_prompt = f"""
-    あなたは戦略コンサルタントです。指定した職業の人が仕事の参考になるようにアドバイスをしてください。
+    あなたは戦略コンサルタントです。
     
     【条件】
     エリア: {area_data['name']}
@@ -402,7 +438,7 @@ def process_single_area(item):
 
 if __name__ == "__main__":
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye v3.1 (Temp Fix) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
+    print(f"🦅 Eagle Eye v3.2 (AMeDAS Hybrid) 起動: {today.strftime('%Y/%m/%d')}", flush=True)
     
     master_data = {}
     with ThreadPoolExecutor(max_workers=5) as executor:
