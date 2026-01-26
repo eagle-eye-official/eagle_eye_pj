@@ -31,7 +31,12 @@ class JobData {
   final String label;
   final IconData icon;
   final Color badgeColor;
-  const JobData({required this.id, required this.label, required this.icon, required this.badgeColor});
+  const JobData({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.badgeColor,
+  });
 }
 
 class AreaData {
@@ -42,21 +47,37 @@ class AreaData {
 
 // 30地点
 final List<AreaData> kAvailableAreas = [
-  AreaData("hakodate", "北海道 函館"), AreaData("sapporo", "北海道 札幌"), AreaData("sendai", "宮城 仙台"),
-  AreaData("tokyo_marunouchi", "東京 丸の内"), AreaData("tokyo_ginza", "東京 銀座"),
-  AreaData("tokyo_shinjuku", "東京 新宿"), AreaData("tokyo_shibuya", "東京 渋谷"),
-  AreaData("tokyo_roppongi", "東京 六本木"), AreaData("tokyo_ikebukuro", "東京 池袋"),
-  AreaData("tokyo_shinagawa", "東京 品川"), AreaData("tokyo_ueno", "東京 上野"),
-  AreaData("tokyo_asakusa", "東京 浅草"), AreaData("tokyo_akihabara", "東京 秋葉原"),
-  AreaData("tokyo_omotesando", "東京 表参道"), AreaData("tokyo_ebisu", "東京 恵比寿"),
-  AreaData("tokyo_odaiba", "東京 お台場"), AreaData("tokyo_toyosu", "東京 豊洲"),
-  AreaData("tokyo_haneda", "東京 羽田空港"), AreaData("chiba_maihama", "千葉 舞浜"),
-  AreaData("kanagawa_yokohama", "神奈川 横浜"), AreaData("aichi_nagoya", "愛知 名古屋"),
-  AreaData("osaka_kita", "大阪 キタ"), AreaData("osaka_minami", "大阪 ミナミ"),
-  AreaData("osaka_hokusetsu", "大阪 北摂"), AreaData("osaka_bay", "大阪 ベイエリア"),
-  AreaData("osaka_tennoji", "大阪 天王寺"), AreaData("kyoto_shijo", "京都 四条"),
-  AreaData("hyogo_kobe", "兵庫 神戸"), AreaData("hiroshima", "広島"),
-  AreaData("fukuoka", "福岡 博多"), AreaData("okinawa_naha", "沖縄 那覇"),
+  AreaData("hakodate", "北海道 函館"),
+  AreaData("sapporo", "北海道 札幌"),
+  AreaData("sendai", "宮城 仙台"),
+  AreaData("tokyo_marunouchi", "東京 丸の内"),
+  AreaData("tokyo_ginza", "東京 銀座"),
+  AreaData("tokyo_shinjuku", "東京 新宿"),
+  AreaData("tokyo_shibuya", "東京 渋谷"),
+  AreaData("tokyo_roppongi", "東京 六本木"),
+  AreaData("tokyo_ikebukuro", "東京 池袋"),
+  AreaData("tokyo_shinagawa", "東京 品川"),
+  AreaData("tokyo_ueno", "東京 上野"),
+  AreaData("tokyo_asakusa", "東京 浅草"),
+  AreaData("tokyo_akihabara", "東京 秋葉原"),
+  AreaData("tokyo_omotesando", "東京 表参道"),
+  AreaData("tokyo_ebisu", "東京 恵比寿"),
+  AreaData("tokyo_odaiba", "東京 お台場"),
+  AreaData("tokyo_toyosu", "東京 豊洲"),
+  AreaData("tokyo_haneda", "東京 羽田空港"),
+  AreaData("chiba_maihama", "千葉 舞浜"),
+  AreaData("kanagawa_yokohama", "神奈川 横浜"),
+  AreaData("aichi_nagoya", "愛知 名古屋"),
+  AreaData("osaka_kita", "大阪 キタ"),
+  AreaData("osaka_minami", "大阪 ミナミ"),
+  AreaData("osaka_hokusetsu", "大阪 北摂"),
+  AreaData("osaka_bay", "大阪 ベイエリア"),
+  AreaData("osaka_tennoji", "大阪 天王寺"),
+  AreaData("kyoto_shijo", "京都 四条"),
+  AreaData("hyogo_kobe", "兵庫 神戸"),
+  AreaData("hiroshima", "広島"),
+  AreaData("fukuoka", "福岡 博多"),
+  AreaData("okinawa_naha", "沖縄 那覇"),
 ];
 
 final List<JobData> kInitialJobList = [
@@ -75,9 +96,32 @@ final List<String> kAgeGroups = ["10代", "20代", "30代", "40代", "50代", "6
 
 // 2026年祝日
 final Set<DateTime> kHolidays2026 = {
-  DateTime(2026, 1, 1), DateTime(2026, 1, 12), DateTime(2026, 2, 11), DateTime(2026, 2, 23),
-  DateTime(2026, 3, 20), DateTime(2026, 4, 29), DateTime(2026, 5, 3), DateTime(2026, 5, 4),
-  DateTime(2026, 5, 5), DateTime(2026/player (mode: LaunchMode.externalApplication)) {
+  DateTime(2026, 1, 1),
+  DateTime(2026, 1, 12),
+  DateTime(2026, 2, 11),
+  DateTime(2026, 2, 23),
+  DateTime(2026, 3, 20),
+  DateTime(2026, 4, 29),
+  DateTime(2026, 5, 3),
+  DateTime(2026, 5, 4),
+  DateTime(2026, 5, 5),
+  DateTime(2026, 5, 6),
+  DateTime(2026, 7, 20),
+  DateTime(2026, 8, 11),
+  DateTime(2026, 9, 21),
+  DateTime(2026, 9, 22),
+  DateTime(2026, 9, 23),
+  DateTime(2026, 10, 12),
+  DateTime(2026, 11, 3),
+  DateTime(2026, 11, 23),
+  DateTime(2026, 11, 24),
+};
+
+// --- URLを開く（WebでもOK） ---
+Future<void> openExternalUrl(String url) async {
+  final uri = Uri.parse(url);
+  final ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
+  if (!ok) {
     throw 'Could not launch $url';
   }
 }
@@ -92,9 +136,15 @@ class EagleEyeApp extends StatelessWidget {
       title: 'Eagle Eye',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.background,
-        colorScheme: const ColorScheme.dark(primary: AppColors.primary, surface: AppColors.cardBackground, secondary: AppColors.action),
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.primary,
+          surface: AppColors.cardBackground,
+          secondary: AppColors.action,
+        ),
         appBarTheme: const AppBarTheme(backgroundColor: AppColors.background, elevation: 0),
-        elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, foregroundColor: Colors.white)),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, foregroundColor: Colors.white),
+        ),
       ),
       home: const SplashPage(),
     );
@@ -126,7 +176,8 @@ class _SplashPageState extends State<SplashPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 180, height: 180,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.accent, width: 3),
@@ -135,12 +186,15 @@ class _SplashPageState extends State<SplashPage> {
                   image: NetworkImage('https://cdn-icons-png.flaticon.com/512/482/482637.png'),
                   fit: BoxFit.scaleDown,
                   scale: 1.5,
-                  colorFilter: ColorFilter.mode(AppColors.accent, BlendMode.srcIn)
+                  colorFilter: ColorFilter.mode(AppColors.accent, BlendMode.srcIn),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            const Text("EAGLE EYE", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: AppColors.accent)),
+            const Text(
+              "EAGLE EYE",
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: AppColors.accent),
+            ),
             const SizedBox(height: 10),
             const Text("Strategy & Weather Intelligence", style: TextStyle(color: Colors.grey, letterSpacing: 1)),
           ],
@@ -169,7 +223,7 @@ class _BootLoaderState extends State<BootLoader> {
       _navigateToMain(
         prefs.getString('selected_area_id')!,
         prefs.getString('selected_job_id')!,
-        prefs.getString('selected_age')!
+        prefs.getString('selected_age')!,
       );
     } else {
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OnboardingPage()));
@@ -179,7 +233,12 @@ class _BootLoaderState extends State<BootLoader> {
   void _navigateToMain(String areaId, String jobId, String age) {
     final area = kAvailableAreas.firstWhere((a) => a.id == areaId, orElse: () => kAvailableAreas.first);
     final job = kInitialJobList.firstWhere((j) => j.id == jobId, orElse: () => kInitialJobList.first);
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainContainerPage(initialArea: area, initialJob: job, initialAge: age)));
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => MainContainerPage(initialArea: area, initialJob: job, initialAge: age)),
+      );
+    }
   }
 
   @override
@@ -204,7 +263,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await prefs.setString('selected_area_id', selectedArea!.id);
     await prefs.setString('selected_job_id', selectedJob!.id);
     await prefs.setString('selected_age', selectedAge!);
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainContainerPage(initialArea: selectedArea!, initialJob: selectedJob!, initialAge: selectedAge!)));
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MainContainerPage(initialArea: selectedArea!, initialJob: selectedJob!, initialAge: selectedAge!),
+        ),
+      );
+    }
   }
 
   @override
@@ -219,14 +285,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
               const Text("Welcome", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: AppColors.accent)),
               const Text("Eagle Eyeへようこそ", style: TextStyle(fontSize: 16, color: Colors.grey)),
               const SizedBox(height: 30),
-              _dropdown("対象エリア", selectedArea?.name, (val) => setState(() => selectedArea = val), kAvailableAreas),
+
+              // ✅ エリアは型安全に AreaData? を扱う
+              _areaDropdown(),
+
               const SizedBox(height: 20),
-              _dropdown("あなたの年代", selectedAge, (val) => setState(() => selectedAge = val), kAgeGroups),
+
+              // ✅ 年代は String? を扱う
+              _ageDropdown(),
+
               const SizedBox(height: 20),
+
               const Text("職業", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 10),
               Wrap(
-                spacing: 10, runSpacing: 10,
+                spacing: 10,
+                runSpacing: 10,
                 children: kInitialJobList.map((job) {
                   final isSelected = selectedJob == job;
                   return ChoiceChip(
@@ -240,6 +314,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   );
                 }).toList(),
               ),
+
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
@@ -256,22 +331,40 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _dropdown<T>(String label, String? currentVal, Function(T?) onChanged, List<T> items) {
+  Widget _areaDropdown() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      const Text("対象エリア", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(12)),
         child: DropdownButtonHideUnderline(
-          child: DropdownButton<T>(
-            value: items.contains(currentVal) || (T == AreaData && items.any((e) => (e as AreaData).name == currentVal))
-                ? items.firstWhere((e) => (e as dynamic).name == currentVal)
-                : null,
+          child: DropdownButton<AreaData>(
+            value: selectedArea,
             isExpanded: true,
             hint: const Text("選択してください"),
-            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e is AreaData ? e.name : e.toString()))).toList(),
-            onChanged: onChanged,
+            items: kAvailableAreas.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
+            onChanged: (val) => setState(() => selectedArea = val),
+          ),
+        ),
+      )
+    ]);
+  }
+
+  Widget _ageDropdown() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text("あなたの年代", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(12)),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selectedAge,
+            isExpanded: true,
+            hint: const Text("選択してください"),
+            items: kAgeGroups.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
+            onChanged: (val) => setState(() => selectedAge = val),
           ),
         ),
       )
@@ -308,7 +401,10 @@ class _MainContainerPageState extends State<MainContainerPage> {
   }
 
   Future<void> _fetchData() async {
-    setState(() { isLoading = true; errorMessage = null; });
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
     final t = DateTime.now().millisecondsSinceEpoch;
     final url = "https://raw.githubusercontent.com/eagle-eye-official/eagle_eye_pj/main/eagle_eye_data.json?t=$t";
 
@@ -323,10 +419,20 @@ class _MainContainerPageState extends State<MainContainerPage> {
           });
         }
       } else {
-        if (mounted) setState(() { errorMessage = "データ取得エラー: ${response.statusCode}"; isLoading = false; });
+        if (mounted) {
+          setState(() {
+            errorMessage = "データ取得エラー: ${response.statusCode}";
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      if (mounted) setState(() { errorMessage = "接続エラー: $e"; isLoading = false; });
+      if (mounted) {
+        setState(() {
+          errorMessage = "接続エラー: $e";
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -352,7 +458,13 @@ class _MainContainerPageState extends State<MainContainerPage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardPage(dataList: currentAreaDataList, job: currentJob, isLoading: isLoading, errorMessage: errorMessage, onRetry: _fetchData),
+      DashboardPage(
+        dataList: currentAreaDataList,
+        job: currentJob,
+        isLoading: isLoading,
+        errorMessage: errorMessage,
+        onRetry: _fetchData,
+      ),
       CalendarPage(dataList: currentAreaDataList, job: currentJob),
       ProfilePage(area: currentArea, job: currentJob, age: currentAge, onUpdate: _updateSettings),
     ];
@@ -364,9 +476,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
           const SizedBox(width: 8),
           Text(currentArea.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ]),
-        actions: [
-          IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh))
-        ],
+        actions: [IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh))],
       ),
       body: pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -392,19 +502,28 @@ class DashboardPage extends StatelessWidget {
   final String? errorMessage;
   final VoidCallback onRetry;
 
-  const DashboardPage({super.key, required this.dataList, required this.job, required this.isLoading, this.errorMessage, required this.onRetry});
+  const DashboardPage({
+    super.key,
+    required this.dataList,
+    required this.job,
+    required this.isLoading,
+    this.errorMessage,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.accent));
     if (errorMessage != null) {
-      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
-        const SizedBox(height: 20),
-        Text(errorMessage!, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 20),
-        ElevatedButton(onPressed: onRetry, child: const Text("再読み込み")),
-      ]));
+      return Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+          const SizedBox(height: 20),
+          Text(errorMessage!, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 20),
+          ElevatedButton(onPressed: onRetry, child: const Text("再読み込み")),
+        ]),
+      );
     }
     if (dataList.isEmpty) return const Center(child: Text("データがありません"));
 
@@ -423,12 +542,9 @@ class DashboardPage extends StatelessWidget {
               const SizedBox(height: 10),
               _buildRankCard(dayData),
               const SizedBox(height: 14),
-
-              // ★追加（A案）：重要事実とピーク時間を最上部に
               _buildFactsCard(dayData),
               const SizedBox(height: 12),
               _buildPeakCard(dayData, job),
-
               const SizedBox(height: 18),
               _buildEventTrafficInfo(dayData),
               const SizedBox(height: 20),
@@ -445,7 +561,7 @@ class DashboardPage extends StatelessWidget {
 
   Widget _buildDateHeader(String date, int index) {
     final label = index == 0 ? "今日" : (index == 1 ? "明日" : "明後日");
-    return Row(children:[
+    return Row(children: [
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(4)),
@@ -467,9 +583,18 @@ class DashboardPage extends StatelessWidget {
 
     Color color = AppColors.rankC;
     String text = "閑散";
-    if (rank == "S") { color = AppColors.rankS; text = "激混み"; }
-    if (rank == "A") { color = AppColors.rankA; text = "混雑"; }
-    if (rank == "B") { color = AppColors.rankB; text = "普通"; }
+    if (rank == "S") {
+      color = AppColors.rankS;
+      text = "激混み";
+    }
+    if (rank == "A") {
+      color = AppColors.rankA;
+      text = "混雑";
+    }
+    if (rank == "B") {
+      color = AppColors.rankB;
+      text = "普通";
+    }
 
     return Container(
       width: double.infinity,
@@ -521,7 +646,6 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // ★追加：重要事実（event_traffic_facts）
   Widget _buildFactsCard(Map<String, dynamic> data) {
     final facts = data['event_traffic_facts'];
     if (facts == null || facts is! List || facts.isEmpty) return const SizedBox.shrink();
@@ -547,21 +671,20 @@ class DashboardPage extends StatelessWidget {
           ]),
           const SizedBox(height: 10),
           ...items.map((t) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
-                Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
-              ],
-            ),
-          )),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
+                    Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
+                  ],
+                ),
+              )),
         ],
       ),
     );
   }
 
-  // ★追加：ピーク時間（peak_windows）
   Widget _buildPeakCard(Map<String, dynamic> data, JobData job) {
     final pw = data['peak_windows'];
     if (pw == null || pw is! Map) return const SizedBox.shrink();
@@ -683,8 +806,7 @@ class DashboardPage extends StatelessWidget {
     final rain = slot['rain'] ?? "";
     final humidity = slot['humidity'] ?? "-";
 
-    // ✅ 修正：humidity を安全に String 化して trim() 判定
-    final humidityStr = humidity.toString().trim();
+    final humidityStr = humidity.toString().trim(); // ✅ trimOffer() を排除
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -709,7 +831,6 @@ class DashboardPage extends StatelessWidget {
                     const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
                     Text(rain, style: const TextStyle(fontSize: 12)),
                   ]),
-                // ✅ 修正：trimOffer() -> trim() かつ安全チェック
                 if (humidityStr.isNotEmpty && humidityStr != "-")
                   Row(children: [
                     const Icon(Icons.opacity, size: 14, color: Colors.lightBlueAccent),
@@ -750,16 +871,14 @@ class DashboardPage extends StatelessWidget {
       }
       if (line.contains('**')) {
         final cleanLine = line.replaceAll('**', '').replaceAll('■', '');
-        parsedContent.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6, top: 12),
-            child: Row(children: [
-              const Icon(Icons.check_circle_outline, color: AppColors.accent, size: 16),
-              const SizedBox(width: 6),
-              Expanded(child: Text(cleanLine, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15))),
-            ]),
-          )
-        );
+        parsedContent.add(Padding(
+          padding: const EdgeInsets.only(bottom: 6, top: 12),
+          child: Row(children: [
+            const Icon(Icons.check_circle_outline, color: AppColors.accent, size: 16),
+            const SizedBox(width: 6),
+            Expanded(child: Text(cleanLine, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15))),
+          ]),
+        ));
       } else {
         parsedContent.add(Text(line, style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.white70)));
       }
@@ -773,18 +892,15 @@ class DashboardPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.accent.withOpacity(0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const Icon(Icons.lightbulb, color: AppColors.accent),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 16))
-          ]),
-          const Divider(color: Colors.white24),
-          ...parsedContent,
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.lightbulb, color: AppColors.accent),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 16))
+        ]),
+        const Divider(color: Colors.white24),
+        ...parsedContent,
+      ]),
     );
   }
 }
@@ -811,11 +927,11 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void _updateSelectedData(DateTime date) {
-    final dateStr1 = "${date.month.toString().padLeft(2,'0')}月${date.day.toString().padLeft(2,'0')}日";
+    final dateStr1 = "${date.month.toString().padLeft(2, '0')}月${date.day.toString().padLeft(2, '0')}日";
     try {
       final data = widget.dataList.firstWhere(
         (item) => item['date'].toString().contains(dateStr1),
-        orElse: () => null
+        orElse: () => null,
       );
       setState(() => _selectedDayData = data);
     } catch (e) {
@@ -857,12 +973,16 @@ class _CalendarPageState extends State<CalendarPage> {
             calendarFormat: CalendarFormat.month,
             headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
             onDaySelected: (sel, foc) {
-              setState(() { _selectedDay = sel; _focusedDay = foc; });
+              setState(() {
+                _selectedDay = sel;
+                _focusedDay = foc;
+              });
               _updateSelectedData(sel);
             },
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, date, _) => _buildCell(date, infoMap[DateTime(date.year, date.month, date.day)]),
-              selectedBuilder: (context, date, _) => _buildCell(date, infoMap[DateTime(date.year, date.month, date.day)], isSelected: true),
+              selectedBuilder: (context, date, _) =>
+                  _buildCell(date, infoMap[DateTime(date.year, date.month, date.day)], isSelected: true),
               todayBuilder: (context, date, _) => _buildCell(date, infoMap[DateTime(date.year, date.month, date.day)], isToday: true),
             ),
           ),
@@ -870,25 +990,19 @@ class _CalendarPageState extends State<CalendarPage> {
           if (_selectedDayData != null) ...[
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("予測: ${_selectedDayData!['date']}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  _SimpleRankCard(data: _selectedDayData!),
-
-                  const SizedBox(height: 12),
-                  // ★追加（A案）：カレンダーにも重要事実＋ピーク時間
-                  _FactsCardInline(data: _selectedDayData!),
-                  const SizedBox(height: 10),
-                  _PeakCardInline(data: _selectedDayData!, job: widget.job),
-
-                  const SizedBox(height: 20),
-                  _buildEventTrafficInfo(_selectedDayData!),
-                  const SizedBox(height: 20),
-                  _SimpleTimeline(data: _selectedDayData!, job: widget.job),
-                ],
-              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("予測: ${_selectedDayData!['date']}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                _SimpleRankCard(data: _selectedDayData!),
+                const SizedBox(height: 12),
+                _FactsCardInline(data: _selectedDayData!),
+                const SizedBox(height: 10),
+                _PeakCardInline(data: _selectedDayData!, job: widget.job),
+                const SizedBox(height: 20),
+                _buildEventTrafficInfo(_selectedDayData!),
+                const SizedBox(height: 20),
+                _SimpleTimeline(data: _selectedDayData!, job: widget.job),
+              ]),
             ),
           ] else ...[
             const Padding(padding: EdgeInsets.all(20.0), child: Text("データなし", style: TextStyle(color: Colors.grey))),
@@ -920,22 +1034,19 @@ class _CalendarPageState extends State<CalendarPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.primary.withOpacity(0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(children: [
-            Icon(Icons.event_note, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text("イベント・交通情報（詳細）", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
-          ]),
-          const SizedBox(height: 10),
-          Text(eventContent, style: const TextStyle(fontSize: 14, height: 1.5)),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.event_note, color: AppColors.primary),
+          SizedBox(width: 8),
+          Text("イベント・交通情報（詳細）", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
+        ]),
+        const SizedBox(height: 10),
+        Text(eventContent, style: const TextStyle(fontSize: 14, height: 1.5)),
+      ]),
     );
   }
 
-  Widget _buildCell(DateTime date, Map<String, String>? info, {bool isSelected=false, bool isToday=false}) {
+  Widget _buildCell(DateTime date, Map<String, String>? info, {bool isSelected = false, bool isToday = false}) {
     bool isHoliday = kHolidays2026.any((h) => isSameDay(h, date)) || date.weekday == DateTime.sunday;
     Color textColor = isHoliday ? Colors.redAccent : Colors.white;
     if (!isHoliday && date.weekday == DateTime.saturday) textColor = Colors.blueAccent;
@@ -955,16 +1066,26 @@ class _CalendarPageState extends State<CalendarPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(info['high']!.replaceAll("最高", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
+                Text(info['high']!.replaceAll("最高", "").replaceAll("℃", ""),
+                    style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
                 const Text("/", style: TextStyle(fontSize: 8)),
-                Text(info['low']!.replaceAll("最低", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
+                Text(info['low']!.replaceAll("最低", "").replaceAll("℃", ""),
+                    style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
               ],
             ),
             Text(info['rain']!.split('/')[0], style: const TextStyle(fontSize: 8, color: Colors.lightBlue)),
-            Container(width: 4, height: 4, decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: info['rank']=="S"?AppColors.rankS : (info['rank']=="A"?AppColors.rankA : (info['rank']=="B"?AppColors.rankB : AppColors.rankC))
-            )),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: info['rank'] == "S"
+                    ? AppColors.rankS
+                    : (info['rank'] == "A"
+                        ? AppColors.rankA
+                        : (info['rank'] == "B" ? AppColors.rankB : AppColors.rankC)),
+              ),
+            ),
           ]
         ],
       ),
@@ -991,27 +1112,24 @@ class _FactsCardInline extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.accent.withOpacity(0.6)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(children: [
-            Icon(Icons.flash_on, color: AppColors.accent),
-            SizedBox(width: 8),
-            Text("重要事実（判断材料）", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
-          ]),
-          const SizedBox(height: 10),
-          ...items.map((t) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
-                Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
-              ],
-            ),
-          )),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.flash_on, color: AppColors.accent),
+          SizedBox(width: 8),
+          Text("重要事実（判断材料）", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 10),
+        ...items.map((t) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
+                  Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
+                ],
+              ),
+            )),
+      ]),
     );
   }
 }
@@ -1061,23 +1179,17 @@ class _PeakCardInline extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.primary.withOpacity(0.5)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(job.icon, color: AppColors.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("${job.label}のピーク時間", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(text, style: const TextStyle(color: Colors.white70, height: 1.4)),
-              ],
-            ),
-          ),
-        ],
-      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(job.icon, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("${job.label}のピーク時間", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(text, style: const TextStyle(color: Colors.white70, height: 1.4)),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -1185,24 +1297,19 @@ class ProfilePage extends StatelessWidget {
           _item("登録エリア", area.name, () => _showAreaPicker(context)),
           _item("職業", job.label, () => _showJobPicker(context)),
           _item("年代", age, () => _showAgePicker(context)),
-
           const SizedBox(height: 40),
           const Divider(color: Colors.grey),
-
           Center(
             child: ElevatedButton.icon(
               icon: const Icon(Icons.mail_outline),
               label: const Text("お問い合わせ・ご要望はこちら"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.action,
-                minimumSize: const Size(double.infinity, 50)
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.action, minimumSize: const Size(double.infinity, 50)),
               onPressed: () async {
-                await openExternalUrl('https://docs.google.com/forms/d/e/1FAIpQLScoy5UPNTvd6ZSp4Yov4kvww2jnX5pEitYJbuedMTw9nv6-Yg/viewform');
+                await openExternalUrl(
+                    'https://docs.google.com/forms/d/e/1FAIpQLScoy5UPNTvd6ZSp4Yov4kvww2jnX5pEitYJbuedMTw9nv6-Yg/viewform');
               },
             ),
           ),
-
           const SizedBox(height: 20),
           Center(
             child: GestureDetector(
@@ -1219,16 +1326,17 @@ class ProfilePage extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith('admin_log_'));
     String logText = "";
-    for (var k in keys) { logText += "${prefs.getString(k)}\n"; }
+    for (var k in keys) {
+      logText += "${prefs.getString(k)}\n";
+    }
 
     showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Admin Logs"),
-        content: SingleChildScrollView(child: Text(logText.isEmpty ? "No logs" : logText)),
-        actions: [TextButton(onPressed: ()=>Navigator.pop(context), child: const Text("Close"))],
-      )
-    );
+        context: context,
+        builder: (_) => AlertDialog(
+              title: const Text("Admin Logs"),
+              content: SingleChildScrollView(child: Text(logText.isEmpty ? "No logs" : logText)),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
+            ));
   }
 
   Widget _item(String label, String val, VoidCallback onTap) {
@@ -1245,18 +1353,51 @@ class ProfilePage extends StatelessWidget {
   }
 
   void _showAreaPicker(BuildContext context) {
-    showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kAvailableAreas.map((a) => ListTile(title: Text(a.name), onTap: () { onUpdate(area: a); Navigator.pop(context); })).toList()
-    ));
+    showModalBottomSheet(
+        context: context,
+        builder: (_) => ListView(
+              children: kAvailableAreas
+                  .map((a) => ListTile(
+                        title: Text(a.name),
+                        onTap: () {
+                          onUpdate(area: a);
+                          Navigator.pop(context);
+                        },
+                      ))
+                  .toList(),
+            ));
   }
+
   void _showJobPicker(BuildContext context) {
-    showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kInitialJobList.map((j) => ListTile(leading: Icon(j.icon), title: Text(j.label), onTap: () { onUpdate(job: j); Navigator.pop(context); })).toList()
-    ));
+    showModalBottomSheet(
+        context: context,
+        builder: (_) => ListView(
+              children: kInitialJobList
+                  .map((j) => ListTile(
+                        leading: Icon(j.icon),
+                        title: Text(j.label),
+                        onTap: () {
+                          onUpdate(job: j);
+                          Navigator.pop(context);
+                        },
+                      ))
+                  .toList(),
+            ));
   }
+
   void _showAgePicker(BuildContext context) {
-    showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kAgeGroups.map((a) => ListTile(title: Text(a), onTap: () { onUpdate(age: a); Navigator.pop(context); })).toList()
-    ));
+    showModalBottomSheet(
+        context: context,
+        builder: (_) => ListView(
+              children: kAgeGroups
+                  .map((a) => ListTile(
+                        title: Text(a),
+                        onTap: () {
+                          onUpdate(age: a);
+                          Navigator.pop(context);
+                        },
+                      ))
+                  .toList(),
+            ));
   }
 }
