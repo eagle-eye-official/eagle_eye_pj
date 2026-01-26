@@ -77,15 +77,7 @@ final List<String> kAgeGroups = ["10代", "20代", "30代", "40代", "50代", "6
 final Set<DateTime> kHolidays2026 = {
   DateTime(2026, 1, 1), DateTime(2026, 1, 12), DateTime(2026, 2, 11), DateTime(2026, 2, 23),
   DateTime(2026, 3, 20), DateTime(2026, 4, 29), DateTime(2026, 5, 3), DateTime(2026, 5, 4),
-  DateTime(2026, 5, 5), DateTime(2026, 5, 6), DateTime(2026, 7, 20), DateTime(2026, 8, 11),
-  DateTime(2026, 9, 21), DateTime(2026, 9, 22), DateTime(2026, 9, 23), DateTime(2026, 10, 12),
-  DateTime(2026, 11, 3), DateTime(2026, 11, 23), DateTime(2026, 11, 24),
-};
-
-// --- URLを開く ---
-Future<void> openExternalUrl(String url) async {
-  final uri = Uri.parse(url);
-  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  DateTime(2026, 5, 5), DateTime(2026/player (mode: LaunchMode.externalApplication)) {
     throw 'Could not launch $url';
   }
 }
@@ -691,6 +683,9 @@ class DashboardPage extends StatelessWidget {
     final rain = slot['rain'] ?? "";
     final humidity = slot['humidity'] ?? "-";
 
+    // ✅ 修正：humidity を安全に String 化して trim() 判定
+    final humidityStr = humidity.toString().trim();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -714,10 +709,11 @@ class DashboardPage extends StatelessWidget {
                     const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
                     Text(rain, style: const TextStyle(fontSize: 12)),
                   ]),
-                if (humidity != "-" && humidity.toString().trimOffer() != "")
+                // ✅ 修正：trimOffer() -> trim() かつ安全チェック
+                if (humidityStr.isNotEmpty && humidityStr != "-")
                   Row(children: [
                     const Icon(Icons.opacity, size: 14, color: Colors.lightBlueAccent),
-                    Text(humidity.toString(), style: const TextStyle(fontSize: 12)),
+                    Text(humidityStr, style: const TextStyle(fontSize: 12)),
                   ]),
               ]),
             ],
