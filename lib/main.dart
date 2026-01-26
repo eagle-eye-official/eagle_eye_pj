@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'dart:html' as html;
 import 'package:http/http.dart' as http;
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +19,7 @@ class AppColors {
   static const primary = Color(0xFF3B82F6);
   static const accent = Color(0xFFF59E0B);
   static const action = Color(0xFFFF6D00);
-  
+
   static const rankS = Color(0xFFEF4444);
   static const rankA = Color(0xFFF97316);
   static const rankB = Color(0xFF3B82F6);
@@ -43,19 +43,19 @@ class AreaData {
 // 30地点
 final List<AreaData> kAvailableAreas = [
   AreaData("hakodate", "北海道 函館"), AreaData("sapporo", "北海道 札幌"), AreaData("sendai", "宮城 仙台"),
-  AreaData("tokyo_marunouchi", "東京 丸の内"), AreaData("tokyo_ginza", "東京 銀座"), 
-  AreaData("tokyo_shinjuku", "東京 新宿"), AreaData("tokyo_shibuya", "東京 渋谷"), 
+  AreaData("tokyo_marunouchi", "東京 丸の内"), AreaData("tokyo_ginza", "東京 銀座"),
+  AreaData("tokyo_shinjuku", "東京 新宿"), AreaData("tokyo_shibuya", "東京 渋谷"),
   AreaData("tokyo_roppongi", "東京 六本木"), AreaData("tokyo_ikebukuro", "東京 池袋"),
-  AreaData("tokyo_shinagawa", "東京 品川"), AreaData("tokyo_ueno", "東京 上野"), 
+  AreaData("tokyo_shinagawa", "東京 品川"), AreaData("tokyo_ueno", "東京 上野"),
   AreaData("tokyo_asakusa", "東京 浅草"), AreaData("tokyo_akihabara", "東京 秋葉原"),
-  AreaData("tokyo_omotesando", "東京 表参道"), AreaData("tokyo_ebisu", "東京 恵比寿"), 
-  AreaData("tokyo_odaiba", "東京 お台場"), AreaData("tokyo_toyosu", "東京 豊洲"), 
-  AreaData("tokyo_haneda", "東京 羽田空港"), AreaData("chiba_maihama", "千葉 舞浜"), 
+  AreaData("tokyo_omotesando", "東京 表参道"), AreaData("tokyo_ebisu", "東京 恵比寿"),
+  AreaData("tokyo_odaiba", "東京 お台場"), AreaData("tokyo_toyosu", "東京 豊洲"),
+  AreaData("tokyo_haneda", "東京 羽田空港"), AreaData("chiba_maihama", "千葉 舞浜"),
   AreaData("kanagawa_yokohama", "神奈川 横浜"), AreaData("aichi_nagoya", "愛知 名古屋"),
-  AreaData("osaka_kita", "大阪 キタ"), AreaData("osaka_minami", "大阪 ミナミ"), 
-  AreaData("osaka_hokusetsu", "大阪 北摂"), AreaData("osaka_bay", "大阪 ベイエリア"), 
-  AreaData("osaka_tennoji", "大阪 天王寺"), AreaData("kyoto_shijo", "京都 四条"), 
-  AreaData("hyogo_kobe", "兵庫 神戸"), AreaData("hiroshima", "広島"), 
+  AreaData("osaka_kita", "大阪 キタ"), AreaData("osaka_minami", "大阪 ミナミ"),
+  AreaData("osaka_hokusetsu", "大阪 北摂"), AreaData("osaka_bay", "大阪 ベイエリア"),
+  AreaData("osaka_tennoji", "大阪 天王寺"), AreaData("kyoto_shijo", "京都 四条"),
+  AreaData("hyogo_kobe", "兵庫 神戸"), AreaData("hiroshima", "広島"),
   AreaData("fukuoka", "福岡 博多"), AreaData("okinawa_naha", "沖縄 那覇"),
 ];
 
@@ -75,12 +75,20 @@ final List<String> kAgeGroups = ["10代", "20代", "30代", "40代", "50代", "6
 
 // 2026年祝日
 final Set<DateTime> kHolidays2026 = {
-  DateTime(2026,1,1), DateTime(2026,1,12), DateTime(2026,2,11), DateTime(2026,2,23),
-  DateTime(2026,3,20), DateTime(2026,4,29), DateTime(2026,5,3), DateTime(2026,5,4),
-  DateTime(2026,5,5), DateTime(2026,5,6), DateTime(2026,7,20), DateTime(2026,8,11),
-  DateTime(2026,9,21), DateTime(2026,9,22), DateTime(2026,9,23), DateTime(2026,10,12),
-  DateTime(2026,11,3), DateTime(2026,11,23), DateTime(2026,11,24),
+  DateTime(2026, 1, 1), DateTime(2026, 1, 12), DateTime(2026, 2, 11), DateTime(2026, 2, 23),
+  DateTime(2026, 3, 20), DateTime(2026, 4, 29), DateTime(2026, 5, 3), DateTime(2026, 5, 4),
+  DateTime(2026, 5, 5), DateTime(2026, 5, 6), DateTime(2026, 7, 20), DateTime(2026, 8, 11),
+  DateTime(2026, 9, 21), DateTime(2026, 9, 22), DateTime(2026, 9, 23), DateTime(2026, 10, 12),
+  DateTime(2026, 11, 3), DateTime(2026, 11, 23), DateTime(2026, 11, 24),
 };
+
+// --- URLを開く ---
+Future<void> openExternalUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    throw 'Could not launch $url';
+  }
+}
 
 // --- アプリ ---
 class EagleEyeApp extends StatelessWidget {
@@ -132,7 +140,7 @@ class _SplashPageState extends State<SplashPage> {
                 border: Border.all(color: AppColors.accent, width: 3),
                 boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.4), blurRadius: 20)],
                 image: const DecorationImage(
-                  image: NetworkImage('https://cdn-icons-png.flaticon.com/512/482/482637.png'), 
+                  image: NetworkImage('https://cdn-icons-png.flaticon.com/512/482/482637.png'),
                   fit: BoxFit.scaleDown,
                   scale: 1.5,
                   colorFilter: ColorFilter.mode(AppColors.accent, BlendMode.srcIn)
@@ -265,7 +273,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         decoration: BoxDecoration(color: AppColors.cardBackground, borderRadius: BorderRadius.circular(12)),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<T>(
-            value: items.contains(currentVal) || (T == AreaData && items.any((e) => (e as AreaData).name == currentVal)) ? items.firstWhere((e) => (e as dynamic).name == currentVal) : null,
+            value: items.contains(currentVal) || (T == AreaData && items.any((e) => (e as AreaData).name == currentVal))
+                ? items.firstWhere((e) => (e as dynamic).name == currentVal)
+                : null,
             isExpanded: true,
             hint: const Text("選択してください"),
             items: items.map((e) => DropdownMenuItem(value: e, child: Text(e is AreaData ? e.name : e.toString()))).toList(),
@@ -295,7 +305,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
   late AreaData currentArea;
   late JobData currentJob;
   late String currentAge;
-  
+
   @override
   void initState() {
     super.initState();
@@ -309,7 +319,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
     setState(() { isLoading = true; errorMessage = null; });
     final t = DateTime.now().millisecondsSinceEpoch;
     final url = "https://raw.githubusercontent.com/eagle-eye-official/eagle_eye_pj/main/eagle_eye_data.json?t=$t";
-    
+
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -334,7 +344,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
       if (area != null) {
         currentArea = area;
         prefs.setString('selected_area_id', area.id);
-        _fetchData(); 
+        _fetchData();
       }
       if (job != null) {
         currentJob = job;
@@ -363,7 +373,7 @@ class _MainContainerPageState extends State<MainContainerPage> {
           Text(currentArea.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ]),
         actions: [
-           IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh))
+          IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh))
         ],
       ),
       body: pages[_currentIndex],
@@ -420,7 +430,14 @@ class DashboardPage extends StatelessWidget {
               _buildDateHeader(dayData['date'], index),
               const SizedBox(height: 10),
               _buildRankCard(dayData),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+
+              // ★追加（A案）：重要事実とピーク時間を最上部に
+              _buildFactsCard(dayData),
+              const SizedBox(height: 12),
+              _buildPeakCard(dayData, job),
+
+              const SizedBox(height: 18),
               _buildEventTrafficInfo(dayData),
               const SizedBox(height: 20),
               _buildTimeline(dayData, job),
@@ -451,7 +468,7 @@ class DashboardPage extends StatelessWidget {
     final rank = data['rank'] ?? "C";
     final w = data['weather_overview'] ?? {};
     final condition = w['condition'] ?? "☁️";
-    final rain = w['rain'] ?? "-"; 
+    final rain = w['rain'] ?? "-";
     final high = w['high'] ?? "-";
     final low = w['low'] ?? "-";
     final warning = w['warning'] ?? "特になし";
@@ -498,8 +515,8 @@ class DashboardPage extends StatelessWidget {
             children: [
               Column(children: [
                 const Icon(Icons.thermostat, color: Colors.white, size: 28),
-                Text(high, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), // 修正
-                Text(low, style: const TextStyle(fontSize: 16)), // 修正
+                Text(high, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(low, style: const TextStyle(fontSize: 16)),
               ]),
               Column(children: [
                 const Icon(Icons.umbrella, color: Colors.white, size: 28),
@@ -512,10 +529,110 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
+  // ★追加：重要事実（event_traffic_facts）
+  Widget _buildFactsCard(Map<String, dynamic> data) {
+    final facts = data['event_traffic_facts'];
+    if (facts == null || facts is! List || facts.isEmpty) return const SizedBox.shrink();
+
+    final items = facts.take(6).map((e) => e.toString()).where((s) => s.trim().isNotEmpty).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.flash_on, color: AppColors.accent),
+            SizedBox(width: 8),
+            Text("重要事実（今日の判断材料）", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15)),
+          ]),
+          const SizedBox(height: 10),
+          ...items.map((t) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
+                Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  // ★追加：ピーク時間（peak_windows）
+  Widget _buildPeakCard(Map<String, dynamic> data, JobData job) {
+    final pw = data['peak_windows'];
+    if (pw == null || pw is! Map) return const SizedBox.shrink();
+
+    String? key;
+    switch (job.id) {
+      case "taxi":
+        key = "taxi";
+        break;
+      case "delivery":
+      case "logistics":
+        key = "delivery";
+        break;
+      case "restaurant":
+        key = "restaurant";
+        break;
+      case "shop":
+      case "conveni":
+        key = "retail";
+        break;
+      case "hotel":
+        key = "hotel";
+        break;
+      default:
+        key = null;
+    }
+
+    final val = (key != null ? pw[key] : null) ?? "";
+    final text = val.toString().trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(job.icon, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${job.label}のピーク時間", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text(text, style: const TextStyle(color: Colors.white70, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEventTrafficInfo(Map<String, dynamic> data) {
     final info = data['daily_schedule_and_impact'] as String?;
     if (info == null) return const SizedBox.shrink();
-    
+
     String eventContent = "";
     if (info.contains("**■Event & Traffic**")) {
       final parts = info.split("**■Event & Traffic**");
@@ -540,7 +657,7 @@ class DashboardPage extends StatelessWidget {
           const Row(children: [
             Icon(Icons.event_note, color: AppColors.primary),
             SizedBox(width: 8),
-            Text("イベント・交通情報", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
+            Text("イベント・交通情報（詳細）", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
           ]),
           const SizedBox(height: 10),
           Text(eventContent, style: const TextStyle(fontSize: 14, height: 1.5)),
@@ -569,9 +686,10 @@ class DashboardPage extends StatelessWidget {
     if (slot == null) return const SizedBox.shrink();
     final adviceMap = slot['advice'] ?? {};
     final myAdvice = adviceMap[job.id] ?? "特になし";
-    final emoji = slot['weather'] ?? ""; 
+    final emoji = slot['weather'] ?? "";
     final temp = slot['temp'] ?? "";
     final rain = slot['rain'] ?? "";
+    final humidity = slot['humidity'] ?? "-";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -587,13 +705,20 @@ class DashboardPage extends StatelessWidget {
               Text(emoji, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                 // ★修正: 気温をそのまま表示 (最高XX / 最低YY という文字列が入ってくる)
-                 Text(temp, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                 if(rain != "-")
-                 Row(children: [
-                   const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
-                   Text(rain, style: const TextStyle(fontSize: 12)),
-                 ]),
+                Row(children: [
+                  const Icon(Icons.thermostat, size: 14, color: Colors.grey),
+                  Text(temp, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ]),
+                if (rain != "-")
+                  Row(children: [
+                    const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
+                    Text(rain, style: const TextStyle(fontSize: 12)),
+                  ]),
+                if (humidity != "-" && humidity.toString().trimOffer() != "")
+                  Row(children: [
+                    const Icon(Icons.opacity, size: 14, color: Colors.lightBlueAccent),
+                    Text(humidity.toString(), style: const TextStyle(fontSize: 12)),
+                  ]),
               ]),
             ],
           ),
@@ -621,7 +746,7 @@ class DashboardPage extends StatelessWidget {
 
     List<Widget> parsedContent = [];
     final lines = info.split('\n');
-    
+
     for (var line in lines) {
       if (line.trim().isEmpty) {
         parsedContent.add(const SizedBox(height: 8));
@@ -633,9 +758,9 @@ class DashboardPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 6, top: 12),
             child: Row(children: [
-               const Icon(Icons.check_circle_outline, color: AppColors.accent, size: 16),
-               const SizedBox(width: 6),
-               Expanded(child: Text(cleanLine, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15))),
+              const Icon(Icons.check_circle_outline, color: AppColors.accent, size: 16),
+              const SizedBox(width: 6),
+              Expanded(child: Text(cleanLine, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15))),
             ]),
           )
         );
@@ -711,15 +836,15 @@ class _CalendarPageState extends State<CalendarPage> {
         final month = int.parse(raw.substring(0, 2));
         final day = int.parse(raw.substring(3, 5));
         final year = DateTime.now().year + (month < DateTime.now().month ? 1 : 0);
-        
+
         final dt = DateTime(year, month, day);
         final w = item['weather_overview'] ?? {};
         infoMap[dt] = {
-          "rank": item['rank'],
-          "cond": w['condition'] ?? "",
-          "rain": w['rain'] ?? "", 
-          "high": w['high'] ?? "", 
-          "low": w['low'] ?? "",   
+          "rank": item['rank']?.toString() ?? "C",
+          "cond": w['condition']?.toString() ?? "",
+          "rain": w['rain']?.toString() ?? "",
+          "high": w['high']?.toString() ?? "",
+          "low": w['low']?.toString() ?? "",
         };
       } catch (e) {}
     }
@@ -755,8 +880,14 @@ class _CalendarPageState extends State<CalendarPage> {
                   Text("予測: ${_selectedDayData!['date']}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   _SimpleRankCard(data: _selectedDayData!),
+
+                  const SizedBox(height: 12),
+                  // ★追加（A案）：カレンダーにも重要事実＋ピーク時間
+                  _FactsCardInline(data: _selectedDayData!),
+                  const SizedBox(height: 10),
+                  _PeakCardInline(data: _selectedDayData!, job: widget.job),
+
                   const SizedBox(height: 20),
-                  // ★追加: カレンダー下部にもイベント情報を表示
                   _buildEventTrafficInfo(_selectedDayData!),
                   const SizedBox(height: 20),
                   _SimpleTimeline(data: _selectedDayData!, job: widget.job),
@@ -764,18 +895,17 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
           ] else ...[
-             const Padding(padding: EdgeInsets.all(20.0), child: Text("データなし", style: TextStyle(color: Colors.grey))),
+            const Padding(padding: EdgeInsets.all(20.0), child: Text("データなし", style: TextStyle(color: Colors.grey))),
           ]
         ],
       ),
     );
   }
 
-  // ★追加: カレンダー下部のイベント情報表示用
   Widget _buildEventTrafficInfo(Map<String, dynamic> data) {
     final info = data['daily_schedule_and_impact'] as String?;
     if (info == null) return const SizedBox.shrink();
-    
+
     String eventContent = "";
     if (info.contains("**■Event & Traffic**")) {
       final parts = info.split("**■Event & Traffic**");
@@ -800,7 +930,7 @@ class _CalendarPageState extends State<CalendarPage> {
           const Row(children: [
             Icon(Icons.event_note, color: AppColors.primary),
             SizedBox(width: 8),
-            Text("イベント・交通情報", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
+            Text("イベント・交通情報（詳細）", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16))
           ]),
           const SizedBox(height: 10),
           Text(eventContent, style: const TextStyle(fontSize: 14, height: 1.5)),
@@ -813,10 +943,10 @@ class _CalendarPageState extends State<CalendarPage> {
     bool isHoliday = kHolidays2026.any((h) => isSameDay(h, date)) || date.weekday == DateTime.sunday;
     Color textColor = isHoliday ? Colors.redAccent : Colors.white;
     if (!isHoliday && date.weekday == DateTime.saturday) textColor = Colors.blueAccent;
-    
+
     BoxDecoration dec = const BoxDecoration();
     if (isSelected) dec = BoxDecoration(border: Border.all(color: AppColors.accent, width: 2), shape: BoxShape.circle);
-    
+
     return Container(
       margin: const EdgeInsets.all(2),
       decoration: dec,
@@ -826,22 +956,130 @@ class _CalendarPageState extends State<CalendarPage> {
           Text("${date.day}", style: TextStyle(color: textColor, fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
           if (info != null) ...[
             Text(info['cond']!, style: const TextStyle(fontSize: 9)),
-            // ★修正: カレンダー内に詳細情報を詰め込む
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // "最高" "℃" を除去して数字だけにする
                 Text(info['high']!.replaceAll("最高", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
                 const Text("/", style: TextStyle(fontSize: 8)),
                 Text(info['low']!.replaceAll("最低", "").replaceAll("℃", ""), style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
               ],
             ),
-            Text(info['rain']!.split('/')[0], style: const TextStyle(fontSize: 8, color: Colors.lightBlue)), // 降水確率
+            Text(info['rain']!.split('/')[0], style: const TextStyle(fontSize: 8, color: Colors.lightBlue)),
             Container(width: 4, height: 4, decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: info['rank']=="S"?AppColors.rankS : (info['rank']=="A"?AppColors.rankA : (info['rank']=="B"?AppColors.rankB : AppColors.rankC))
             )),
           ]
+        ],
+      ),
+    );
+  }
+}
+
+class _FactsCardInline extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _FactsCardInline({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final facts = data['event_traffic_facts'];
+    if (facts == null || facts is! List || facts.isEmpty) return const SizedBox.shrink();
+    final items = facts.take(6).map((e) => e.toString()).where((s) => s.trim().isNotEmpty).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent.withOpacity(0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.flash_on, color: AppColors.accent),
+            SizedBox(width: 8),
+            Text("重要事実（判断材料）", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 10),
+          ...items.map((t) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("•  ", style: TextStyle(color: Colors.white70, height: 1.4)),
+                Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeakCardInline extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final JobData job;
+  const _PeakCardInline({required this.data, required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final pw = data['peak_windows'];
+    if (pw == null || pw is! Map) return const SizedBox.shrink();
+
+    String? key;
+    switch (job.id) {
+      case "taxi":
+        key = "taxi";
+        break;
+      case "delivery":
+      case "logistics":
+        key = "delivery";
+        break;
+      case "restaurant":
+        key = "restaurant";
+        break;
+      case "shop":
+      case "conveni":
+        key = "retail";
+        break;
+      case "hotel":
+        key = "hotel";
+        break;
+      default:
+        key = null;
+    }
+
+    final val = (key != null ? pw[key] : null) ?? "";
+    final text = val.toString().trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(job.icon, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${job.label}のピーク時間", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text(text, style: const TextStyle(color: Colors.white70, height: 1.4)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -855,7 +1093,7 @@ class _SimpleRankCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rank = data['rank'] ?? "C";
     final w = data['weather_overview'] ?? {};
-    
+
     Color color = AppColors.rankC;
     if (rank == "S") color = AppColors.rankS;
     if (rank == "A") color = AppColors.rankA;
@@ -887,7 +1125,7 @@ class _SimpleTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeline = data['timeline'];
-    
+
     if (timeline == null) {
       final text = data['daily_schedule_and_impact'] as String? ?? "詳細なし";
       final cleanText = text.replaceAll('**', '').replaceAll('■', '');
@@ -897,7 +1135,7 @@ class _SimpleTimeline extends StatelessWidget {
         child: Text(cleanText, style: const TextStyle(color: Colors.white70, height: 1.5)),
       );
     }
-    
+
     String getAdvice(String timeKey) {
       if (timeline[timeKey] == null) return "-";
       return timeline[timeKey]['advice']?[job.id] ?? "特になし";
@@ -951,10 +1189,10 @@ class ProfilePage extends StatelessWidget {
           _item("登録エリア", area.name, () => _showAreaPicker(context)),
           _item("職業", job.label, () => _showJobPicker(context)),
           _item("年代", age, () => _showAgePicker(context)),
-          
+
           const SizedBox(height: 40),
           const Divider(color: Colors.grey),
-          
+
           Center(
             child: ElevatedButton.icon(
               icon: const Icon(Icons.mail_outline),
@@ -963,32 +1201,32 @@ class ProfilePage extends StatelessWidget {
                 backgroundColor: AppColors.action,
                 minimumSize: const Size(double.infinity, 50)
               ),
-              onPressed: () {
-                html.window.open('https://docs.google.com/forms/d/e/1FAIpQLScoy5UPNTvd6ZSp4Yov4kvww2jnX5pEitYJbuedMTw9nv6-Yg/viewform', '_blank');
+              onPressed: () async {
+                await openExternalUrl('https://docs.google.com/forms/d/e/1FAIpQLScoy5UPNTvd6ZSp4Yov4kvww2jnX5pEitYJbuedMTw9nv6-Yg/viewform');
               },
             ),
           ),
-          
+
           const SizedBox(height: 20),
           Center(
             child: GestureDetector(
               onLongPress: () => _showAdminDialog(context),
-              child: const Text("App Version 2.0.0", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              child: const Text("App Version 2.0.1", style: TextStyle(color: Colors.grey, fontSize: 12)),
             ),
           ),
         ],
       ),
     );
   }
-  
+
   void _showAdminDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith('admin_log_'));
     String logText = "";
-    for(var k in keys) { logText += "${prefs.getString(k)}\n"; }
-    
+    for (var k in keys) { logText += "${prefs.getString(k)}\n"; }
+
     showDialog(
-      context: context, 
+      context: context,
       builder: (_) => AlertDialog(
         title: const Text("Admin Logs"),
         content: SingleChildScrollView(child: Text(logText.isEmpty ? "No logs" : logText)),
@@ -1012,17 +1250,17 @@ class ProfilePage extends StatelessWidget {
 
   void _showAreaPicker(BuildContext context) {
     showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kAvailableAreas.map((a) => ListTile(title: Text(a.name), onTap: (){ onUpdate(area: a); Navigator.pop(context); })).toList()
+      children: kAvailableAreas.map((a) => ListTile(title: Text(a.name), onTap: () { onUpdate(area: a); Navigator.pop(context); })).toList()
     ));
   }
   void _showJobPicker(BuildContext context) {
     showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kInitialJobList.map((j) => ListTile(leading: Icon(j.icon), title: Text(j.label), onTap: (){ onUpdate(job: j); Navigator.pop(context); })).toList()
+      children: kInitialJobList.map((j) => ListTile(leading: Icon(j.icon), title: Text(j.label), onTap: () { onUpdate(job: j); Navigator.pop(context); })).toList()
     ));
   }
   void _showAgePicker(BuildContext context) {
     showModalBottomSheet(context: context, builder: (_) => ListView(
-      children: kAgeGroups.map((a) => ListTile(title: Text(a), onTap: (){ onUpdate(age: a); Navigator.pop(context); })).toList()
+      children: kAgeGroups.map((a) => ListTile(title: Text(a), onTap: () { onUpdate(age: a); Navigator.pop(context); })).toList()
     ));
   }
 }
