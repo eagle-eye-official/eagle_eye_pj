@@ -81,16 +81,13 @@ final List<AreaData> kAvailableAreas = [
   AreaData("okinawa_naha", "沖縄 那覇"),
 ];
 
+// ✅ 5職業に固定（main.py側のJOB_KEYSと揃える）
 final List<JobData> kInitialJobList = [
   JobData(id: "taxi", label: "タクシー", icon: Icons.local_taxi, badgeColor: Colors.amber),
+  JobData(id: "delivery", label: "配送", icon: Icons.local_shipping, badgeColor: Colors.teal),
   JobData(id: "restaurant", label: "飲食店", icon: Icons.restaurant, badgeColor: Colors.redAccent),
+  JobData(id: "retail", label: "小売", icon: Icons.store, badgeColor: Colors.pink),
   JobData(id: "hotel", label: "ホテル", icon: Icons.hotel, badgeColor: Colors.blue),
-  JobData(id: "shop", label: "小売", icon: Icons.store, badgeColor: Colors.pink),
-  JobData(id: "logistics", label: "物流", icon: Icons.local_shipping, badgeColor: Colors.teal),
-  JobData(id: "conveni", label: "コンビニ", icon: Icons.local_convenience_store, badgeColor: Colors.orange),
-  JobData(id: "construction", label: "建設", icon: Icons.construction, badgeColor: Colors.brown),
-  JobData(id: "delivery", label: "デリバリー", icon: Icons.delivery_dining, badgeColor: Colors.green),
-  JobData(id: "security", label: "警備", icon: Icons.security, badgeColor: Colors.indigo),
 ];
 
 final List<String> kAgeGroups = ["10代", "20代", "30代", "40代", "50代", "60代以上"];
@@ -642,13 +639,15 @@ class DashboardPage extends StatelessWidget {
               const SizedBox(height: 12),
               _buildPeakCard(dayData, job),
               const SizedBox(height: 12),
-              _buildMyActionCard(dayData, job),
+              _buildTodayActionCard(dayData, job),
+              const SizedBox(height: 12),
+              _buildJobActionCard(dayData, job),
               const SizedBox(height: 18),
               _buildEventTrafficInfo(dayData),
               const SizedBox(height: 20),
               _buildTimeline(dayData, job),
               const SizedBox(height: 20),
-              _buildStrategyReport(dayData, job),
+              _buildStrategyReport(dayData),
               const SizedBox(height: 20),
             ],
           ),
@@ -816,30 +815,7 @@ class DashboardPage extends StatelessWidget {
     final pw = data['peak_windows'];
     if (pw == null || pw is! Map) return const SizedBox.shrink();
 
-    String? key;
-    switch (job.id) {
-      case "taxi":
-        key = "taxi";
-        break;
-      case "delivery":
-      case "logistics":
-        key = "delivery";
-        break;
-      case "restaurant":
-        key = "restaurant";
-        break;
-      case "shop":
-      case "conveni":
-        key = "retail";
-        break;
-      case "hotel":
-        key = "hotel";
-        break;
-      default:
-        key = null;
-    }
-
-    final val = (key != null ? pw[key] : null) ?? "";
+    final val = pw[job.id] ?? "";
     final text = val.toString().trim();
     if (text.isEmpty) return const SizedBox.shrink();
 
@@ -871,13 +847,35 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // “提案型”の補助（データが薄い時でも「今日の一手」を出す）
-  Widget _buildMyActionCard(Map<String, dynamic> data, JobData job) {
+  // ✅ main.py の today_action を優先して表示（無ければ控えめな保険コメント）
+  Widget _buildTodayActionCard(Map<String, dynamic> data, JobData job) {
+    final ai = (data['today_action'] ?? "").toString().trim();
+    if (ai.isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.accent.withOpacity(0.35)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.assistant, color: AppColors.accent),
+            SizedBox(width: 8),
+            Text("今日の一手（提案）", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 10),
+          Text(ai, style: const TextStyle(color: Colors.white70, height: 1.5)),
+        ]),
+      );
+    }
+
+    // fallback（控えめ）
     final rank = (data['rank'] ?? "C").toString();
     final w = (data['weather_overview'] ?? {}) as Map;
     final warning = w['warning']?.toString() ?? "特になし";
     final rain = w['rain']?.toString() ?? "";
-
     final bullets = <String>[];
 
     if (rank == "S" || rank == "A") {
@@ -888,40 +886,16 @@ class DashboardPage extends StatelessWidget {
     } else {
       bullets.add("需要が薄い前提で、移動コストを抑え“短距離の確度”を優先。");
     }
-
     if (warning != "特になし") {
       bullets.add("⚠️ 注意情報あり：安全優先で行動（装備/迂回/運休前提の代替案）。");
     }
-
     if (rain.contains("%")) {
       final p = int.tryParse(RegExp(r'(\d+)').firstMatch(rain)?.group(1) ?? "");
       if (p != null && p >= 50) {
         bullets.add("降水確率高め：滑り止め/防水/遅延前提で“早め行動”に切替。");
       }
     }
-
-    // 職業別の最後のひと押し
-    switch (job.id) {
-      case "taxi":
-        bullets.add("タクシー：主要駅・病院・ホテルの“流入動線”に寄せる。");
-        break;
-      case "restaurant":
-        bullets.add("飲食店：仕込みと提供スピード優先、テイクアウト導線を明確化。");
-        break;
-      case "hotel":
-        bullets.add("ホテル：欠航/運休客の延泊需要に備え、柔軟な延長対応を準備。");
-        break;
-      case "delivery":
-      case "logistics":
-        bullets.add("配送：到着遅延を前提に顧客連絡を早める（不在率低下）。");
-        break;
-      case "conveni":
-        bullets.add("コンビニ：欠品しやすい主力（飲料/即食/カイロ）を前倒し補充。");
-        break;
-      default:
-        bullets.add("${job.label}：安全と効率の両立で“できる範囲を最大化”。");
-        break;
-    }
+    bullets.add("${job.label}：安全と効率の両立で“できる範囲を最大化”。");
 
     return Container(
       width: double.infinity,
@@ -945,6 +919,37 @@ class DashboardPage extends StatelessWidget {
                 Expanded(child: Text(t, style: const TextStyle(color: Colors.white70, height: 1.4))),
               ]),
             )),
+      ]),
+    );
+  }
+
+  // ✅ main.py の job_actions（職業別の打ち手・要点）を表示
+  Widget _buildJobActionCard(Map<String, dynamic> data, JobData job) {
+    final ja = data['job_actions'];
+    if (ja == null || ja is! Map) return const SizedBox.shrink();
+
+    final v = ja[job.id] ?? "";
+    final text = v.toString().trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.35)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(job.icon, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("${job.label}の打ち手（要点）", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(text, style: const TextStyle(color: Colors.white70, height: 1.5)),
+          ]),
+        ),
       ]),
     );
   }
@@ -1013,7 +1018,7 @@ class DashboardPage extends StatelessWidget {
       return "最高$hiStr / 最低$loStr";
     }
 
-    // 次点：temp_range みたいな文字列
+    // 次点：temp_range
     final tr = slot['temp_range'];
     if (tr != null) return tr.toString();
 
@@ -1027,13 +1032,17 @@ class DashboardPage extends StatelessWidget {
 
   Widget _timeSlot(String label, Map<String, dynamic>? slot, JobData job) {
     if (slot == null) return const SizedBox.shrink();
-    final adviceMap = slot['advice'] ?? {};
-    final myAdvice = adviceMap[job.id] ?? "特になし";
+
+    final adviceMap = slot['advice'];
+    String myAdvice = "特になし";
+    if (adviceMap is Map) {
+      myAdvice = (adviceMap[job.id] ?? "特になし").toString();
+    }
+
     final emoji = slot['weather'] ?? "";
     final rain = slot['rain'] ?? "";
     final humidity = slot['humidity'] ?? "-";
     final humidityStr = humidity.toString().trim();
-
     final tempRangeText = _timeTempRangeText(slot);
 
     return Container(
@@ -1054,7 +1063,7 @@ class DashboardPage extends StatelessWidget {
                   const Icon(Icons.thermostat, size: 14, color: Colors.grey),
                   Text(tempRangeText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ]),
-                if (rain != "-")
+                if (rain.toString().trim().isNotEmpty && rain.toString() != "-")
                   Row(children: [
                     const Icon(Icons.water_drop, size: 14, color: Colors.blueAccent),
                     Text(rain.toString(), style: const TextStyle(fontSize: 12)),
@@ -1073,7 +1082,7 @@ class DashboardPage extends StatelessWidget {
             children: [
               Icon(job.icon, size: 18, color: Colors.grey),
               const SizedBox(width: 8),
-              Expanded(child: Text(myAdvice.toString(), style: const TextStyle(fontSize: 14, height: 1.4))),
+              Expanded(child: Text(myAdvice, style: const TextStyle(fontSize: 14, height: 1.4))),
             ],
           ),
         ],
@@ -1081,62 +1090,19 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // 職業別の打ち手（要点）を「選択職業だけ」に絞って表示する
-  String _filterJobSectionOnly(String src, JobData job) {
-    // job.label を含む行だけ拾う（例： "・タクシー："）
-    final lines = src.split('\n');
-    final out = <String>[];
-    bool inJobSection = false;
-
-    for (final line in lines) {
-      final t = line.trimRight();
-
-      // セクション開始
-      if (t.contains("職業別の打ち手")) {
-        inJobSection = true;
-        out.add(line);
-        continue;
-      }
-
-      // 次のセクションに入ったら終了
-      if (inJobSection && t.contains("**") && !t.contains("職業別の打ち手")) {
-        inJobSection = false;
-      }
-
-      if (!inJobSection) {
-        out.add(line);
-        continue;
-      }
-
-      // 職業別の打ち手の中：該当職業だけ残す
-      if (t.startsWith("・") && t.contains("：")) {
-        if (t.contains(job.label)) {
-          out.add(line);
-        }
-      } else if (t.isEmpty) {
-        // 余計な空行は少しだけ残す
-        out.add(line);
-      }
-    }
-
-    return out.join('\n');
-  }
-
-  Widget _buildStrategyReport(Map<String, dynamic> data, JobData job) {
+  // ✅ レポートはそのまま表示（職業別フィルタは撤廃）
+  Widget _buildStrategyReport(Map<String, dynamic> data) {
     final raw = data['daily_schedule_and_impact'] as String?;
     if (raw == null || raw.isEmpty) return const SizedBox.shrink();
-
-    // ここで「職業別の打ち手」を絞る
-    final info = _filterJobSectionOnly(raw, job);
 
     final dateRaw = data['date'].toString();
     final dateClean = dateRaw.split(' ')[0].replaceAll(RegExp(r'\d{4}年'), '');
     final title = "$dateCleanのレポート";
 
-    List<Widget> parsedContent = [];
-    final lines = info.split('\n');
+    final lines = raw.split('\n');
+    final parsedContent = <Widget>[];
 
-    for (var line in lines) {
+    for (final line in lines) {
       if (line.trim().isEmpty) {
         parsedContent.add(const SizedBox(height: 8));
         continue;
@@ -1148,7 +1114,10 @@ class DashboardPage extends StatelessWidget {
           child: Row(children: [
             const Icon(Icons.check_circle_outline, color: AppColors.accent, size: 16),
             const SizedBox(width: 6),
-            Expanded(child: Text(cleanLine, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15))),
+            Expanded(
+              child: Text(cleanLine,
+                  style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
           ]),
         ));
       } else {
@@ -1270,6 +1239,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 _FactsCardInline(data: _selectedDayData!),
                 const SizedBox(height: 10),
                 _PeakCardInline(data: _selectedDayData!, job: widget.job),
+                const SizedBox(height: 10),
+                _JobActionInline(data: _selectedDayData!, job: widget.job),
                 const SizedBox(height: 20),
                 _buildEventTrafficInfo(_selectedDayData!),
                 const SizedBox(height: 20),
@@ -1338,10 +1309,10 @@ class _CalendarPageState extends State<CalendarPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(info['high']!.replaceAll("最高", "").replaceAll("℃", ""),
+                Text(info['high']!.replaceAll("最高", "").replaceAll("℃", "").replaceAll("°C", ""),
                     style: const TextStyle(fontSize: 8, color: Colors.redAccent)),
                 const Text("/", style: TextStyle(fontSize: 8)),
-                Text(info['low']!.replaceAll("最低", "").replaceAll("℃", ""),
+                Text(info['low']!.replaceAll("最低", "").replaceAll("℃", "").replaceAll("°C", ""),
                     style: const TextStyle(fontSize: 8, color: Colors.blueAccent)),
               ],
             ),
@@ -1416,30 +1387,7 @@ class _PeakCardInline extends StatelessWidget {
     final pw = data['peak_windows'];
     if (pw == null || pw is! Map) return const SizedBox.shrink();
 
-    String? key;
-    switch (job.id) {
-      case "taxi":
-        key = "taxi";
-        break;
-      case "delivery":
-      case "logistics":
-        key = "delivery";
-        break;
-      case "restaurant":
-        key = "restaurant";
-        break;
-      case "shop":
-      case "conveni":
-        key = "retail";
-        break;
-      case "hotel":
-        key = "hotel";
-        break;
-      default:
-        key = null;
-    }
-
-    final val = (key != null ? pw[key] : null) ?? "";
+    final val = pw[job.id] ?? "";
     final text = val.toString().trim();
     if (text.isEmpty) return const SizedBox.shrink();
 
@@ -1459,6 +1407,43 @@ class _PeakCardInline extends StatelessWidget {
             Text("${job.label}のピーク時間", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text(text, style: const TextStyle(color: Colors.white70, height: 1.4)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _JobActionInline extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final JobData job;
+  const _JobActionInline({required this.data, required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final ja = data['job_actions'];
+    if (ja == null || ja is! Map) return const SizedBox.shrink();
+
+    final val = ja[job.id] ?? "";
+    final text = val.toString().trim();
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.35)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(job.icon, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("${job.label}の打ち手（要点）", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(text, style: const TextStyle(color: Colors.white70, height: 1.5)),
           ]),
         ),
       ]),
@@ -1518,7 +1503,9 @@ class _SimpleTimeline extends StatelessWidget {
 
     String getAdvice(String timeKey) {
       if (timeline[timeKey] == null) return "-";
-      return timeline[timeKey]['advice']?[job.id] ?? "特になし";
+      final adv = timeline[timeKey]['advice'];
+      if (adv is Map) return (adv[job.id] ?? "特になし").toString();
+      return "特になし";
     }
 
     return Column(
@@ -1586,7 +1573,7 @@ class ProfilePage extends StatelessWidget {
           Center(
             child: GestureDetector(
               onLongPress: () => _showAdminDialog(context),
-              child: const Text("App Version 2.0.1", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              child: const Text("App Version 2.1.0", style: TextStyle(color: Colors.grey, fontSize: 12)),
             ),
           ),
         ],
