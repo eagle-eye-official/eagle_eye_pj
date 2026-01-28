@@ -5,8 +5,8 @@ import 'package:flutter/services.dart' show rootBundle;
 /// ===============================
 /// Eagle Eye - main.dart
 /// - assets/eagle_eye_data.json を読み込み
-/// - JSON読み込みエラーを「原因特定できる形」で表示
-/// - 職業を選んで全職業に対応（タクシー固定を廃止）
+/// - main.py(v5.1)の新フィールドに対応
+/// - 視認性（文字色/コントラスト）を改善
 /// ===============================
 
 void main() {
@@ -27,52 +27,130 @@ class EagleEyeApp extends StatelessWidget {
   }
 
   ThemeData _buildTheme() {
+    // ===== Palette（コントラスト重視）=====
     const bg = Color(0xFF0B1220);
-    const card = Color(0xFF0F1B2D);
+    const card = Color(0xFF111F34);      // ほんの少し明るく
+    const card2 = Color(0xFF142844);     // 内側ブロック用
     const accent = Color(0xFFFFA135);
-    const accentSoft = Color(0x33FFA135);
 
-    final base = ThemeData.dark(useMaterial3: true);
-    return base.copyWith(
+    // 文字色（強制的に明るく）
+    const fg = Color(0xFFEAF0FF);        // ほぼ白
+    const fgSoft = Color(0xFFB9C7E6);    // 説明文
+    const fgMuted = Color(0xFF92A3C7);   // 補助
+
+    final scheme = ColorScheme.fromSeed(
+      seedColor: accent,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: accent,
+      secondary: accent,
+      background: bg,
+      surface: card,
+      // 重要：onX を “明るい色”で固定（黒化事故を防ぐ）
+      onBackground: fg,
+      onSurface: fg,
+      onPrimary: Colors.black,
+      onSecondary: Colors.black,
+    );
+
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: scheme,
       scaffoldBackgroundColor: bg,
-      colorScheme: base.colorScheme.copyWith(
-        primary: accent,
-        secondary: accent,
-        surface: card,
-      ),
+    );
+
+    final textTheme = base.textTheme
+        .apply(bodyColor: fg, displayColor: fg)
+        .copyWith(
+          titleLarge: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: fg),
+          titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: fg),
+          titleSmall: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: fg),
+          bodyLarge: const TextStyle(fontSize: 15, height: 1.55, color: fg),
+          bodyMedium: const TextStyle(fontSize: 14, height: 1.60, color: fg),
+          bodySmall: const TextStyle(fontSize: 12, height: 1.50, color: fgSoft),
+          labelLarge: const TextStyle(color: fg),
+        );
+
+    return base.copyWith(
+      textTheme: textTheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: bg,
         elevation: 0,
         centerTitle: false,
+        foregroundColor: fg, // AppBarの文字・アイコンを白固定
+      ),
+      iconTheme: const IconThemeData(color: fg),
+      dividerTheme: base.dividerTheme.copyWith(
+        color: fg.withOpacity(0.12),
+        thickness: 1,
       ),
       cardTheme: CardTheme(
         color: card,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
-      dividerTheme: base.dividerTheme.copyWith(
-        color: Colors.white.withOpacity(0.08),
-        thickness: 1,
+      listTileTheme: const ListTileThemeData(
+        textColor: fg,
+        iconColor: fg,
       ),
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: accentSoft,
-        labelStyle: const TextStyle(color: Colors.white),
+        backgroundColor: accent.withOpacity(0.18),
+        labelStyle: const TextStyle(color: fg, fontWeight: FontWeight.w800),
         side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
-      textTheme: base.textTheme.copyWith(
-        titleLarge: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        titleSmall: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        bodyLarge: const TextStyle(fontSize: 15, height: 1.5),
-        bodyMedium: const TextStyle(fontSize: 14, height: 1.55),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          height: 1.45,
-          color: Colors.white.withOpacity(0.72),
-        ),
+      // ここも事故が出やすいので固定
+      expansionTileTheme: ExpansionTileThemeData(
+        textColor: fg,
+        iconColor: fg,
+        collapsedTextColor: fgSoft,
+        collapsedIconColor: fgSoft,
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      iconTheme: const IconThemeData(color: Colors.white),
+      // 内側ブロックの背景色を少し持ち上げる
+      extensions: <ThemeExtension<dynamic>>[
+        _EagleEyeColors(card2: card2, fg: fg, fgSoft: fgSoft, fgMuted: fgMuted),
+      ],
+    );
+  }
+}
+
+/// 内側ブロックで使う色（Theme拡張）
+class _EagleEyeColors extends ThemeExtension<_EagleEyeColors> {
+  final Color card2;
+  final Color fg;
+  final Color fgSoft;
+  final Color fgMuted;
+
+  const _EagleEyeColors({
+    required this.card2,
+    required this.fg,
+    required this.fgSoft,
+    required this.fgMuted,
+  });
+
+  @override
+  _EagleEyeColors copyWith({Color? card2, Color? fg, Color? fgSoft, Color? fgMuted}) {
+    return _EagleEyeColors(
+      card2: card2 ?? this.card2,
+      fg: fg ?? this.fg,
+      fgSoft: fgSoft ?? this.fgSoft,
+      fgMuted: fgMuted ?? this.fgMuted,
+    );
+  }
+
+  @override
+  _EagleEyeColors lerp(ThemeExtension<_EagleEyeColors>? other, double t) {
+    if (other is! _EagleEyeColors) return this;
+    return _EagleEyeColors(
+      card2: Color.lerp(card2, other.card2, t) ?? card2,
+      fg: Color.lerp(fg, other.fg, t) ?? fg,
+      fgSoft: Color.lerp(fgSoft, other.fgSoft, t) ?? fgSoft,
+      fgMuted: Color.lerp(fgMuted, other.fgMuted, t) ?? fgMuted,
     );
   }
 }
@@ -109,15 +187,11 @@ class ForecastDay {
       date: (j['date'] ?? '-') as String,
       isLongTerm: (j['is_long_term'] ?? false) as bool,
       rank: (j['rank'] ?? 'C') as String,
-      weatherOverview: WeatherOverview.fromJson(
-        (j['weather_overview'] ?? {}) as Map<String, dynamic>,
-      ),
+      weatherOverview: WeatherOverview.fromJson((j['weather_overview'] ?? {}) as Map<String, dynamic>),
       eventTrafficFacts: _asStringList(j['event_traffic_facts']),
       peakWindows: _asStringMap(j['peak_windows']),
       dailyScheduleAndImpact: (j['daily_schedule_and_impact'] ?? '') as String,
-      timeline: j['timeline'] == null
-          ? null
-          : TimelineSlots.fromJson(j['timeline'] as Map<String, dynamic>),
+      timeline: j['timeline'] == null ? null : TimelineSlots.fromJson(j['timeline'] as Map<String, dynamic>),
       confidence: (j['confidence'] is num) ? (j['confidence'] as num).round() : 0,
     );
   }
@@ -238,44 +312,10 @@ class SlotWeather {
 /// ===============================
 
 class EagleEyeRepo {
-  /// assets/eagle_eye_data.json を読む（デバッグ強化版）
+  /// assets/eagle_eye_data.json を読む
   Future<Map<String, List<ForecastDay>>> load() async {
-    String raw = '';
-    try {
-      raw = await rootBundle.loadString('assets/eagle_eye_data.json');
-    } catch (e) {
-      throw Exception('assets読み込み失敗: $e');
-    }
-
-    final trimmed = raw.trim();
-
-    // 1) 空（= Unexpected EOF の最大原因）
-    if (trimmed.isEmpty) {
-      throw Exception('JSONが空です（length=0）。assets/eagle_eye_data.json が空 or 配信/反映されていません。');
-    }
-
-    // 2) JSON以外（例：404 HTML / キャッシュで違うものを掴んでいる）
-    final head = trimmed.length > 120 ? trimmed.substring(0, 120) : trimmed;
-    if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
-      throw Exception(
-        'JSONではない内容を取得しています（length=${trimmed.length} / head="$head"）\n'
-        'Webならキャッシュ or 404の可能性が高いです。',
-      );
-    }
-
-    dynamic decoded;
-    try {
-      decoded = json.decode(trimmed);
-    } catch (e) {
-      final tail = trimmed.length > 120 ? trimmed.substring(trimmed.length - 120) : trimmed;
-      throw Exception(
-        'JSONパース失敗: $e\n'
-        'length=${trimmed.length}\n'
-        'head="$head"\n'
-        'tail="$tail"\n'
-        '→ 末尾が欠けている/カンマが余計/引用符が崩れている等が疑いです。',
-      );
-    }
+    final raw = await rootBundle.loadString('assets/eagle_eye_data.json');
+    final decoded = json.decode(raw);
 
     if (decoded is! Map) {
       throw Exception('eagle_eye_data.json の形式が不正です（rootがMapではない）');
@@ -312,9 +352,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   String? _areaKey;
   int _dayIndex = 0;
 
-  // 追加：職業（キー）選択。taxi固定をやめる
-  String? _jobKey;
-
   bool _loading = true;
   String? _error;
 
@@ -332,9 +369,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         _data = data;
         _areaKey = keys.isNotEmpty ? keys.first : null;
         _dayIndex = 0;
-        _jobKey = null; // 日付/エリア変わると選択候補も変わるのでリセット
         _loading = false;
-        _error = null;
       });
     } catch (e) {
       setState(() {
@@ -383,48 +418,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
     final day = list[_dayIndex.clamp(0, list.length - 1)];
 
-    // -------------------------------
-    // 職業候補を日データから抽出（peak_windows + timeline.advice）
-    // -------------------------------
-    final jobs = <String>{};
-    jobs.addAll(day.peakWindows.keys);
-
-    if (day.timeline != null) {
-      jobs.addAll(day.timeline!.morning.advice.keys);
-      jobs.addAll(day.timeline!.daytime.advice.keys);
-      jobs.addAll(day.timeline!.night.advice.keys);
-    }
-
-    jobs.removeWhere((e) => e.trim().isEmpty);
-
-    final sortedJobs = jobs.toList()..sort();
-
-    // デフォルト決定（taxiがあればtaxi、なければ先頭）
-    final effectiveJobKey = (_jobKey != null && jobs.contains(_jobKey))
-        ? _jobKey!
-        : (jobs.contains('taxi')
-            ? 'taxi'
-            : (sortedJobs.isNotEmpty ? sortedJobs.first : 'taxi'));
-
-    // まだ_stateに入ってない場合は一度だけ入れる（build中setStateしない）
-    if (_jobKey == null && sortedJobs.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() => _jobKey = effectiveJobKey);
-      });
-    }
-
-    final jobLabel = _prettyJobName(effectiveJobKey);
-
-    // この職業の表示用データ
-    final jobPeaks = (day.peakWindows[effectiveJobKey] ?? '').trim();
-
-    final jobKeypoint = _extractJobKeypoint(day.dailyScheduleAndImpact, jobLabel);
-
-    final jobHintMorning = (day.timeline?.morning.advice[effectiveJobKey] ?? '').trim();
-    final jobHintDaytime = (day.timeline?.daytime.advice[effectiveJobKey] ?? '').trim();
-    final jobHintNight = (day.timeline?.night.advice[effectiveJobKey] ?? '').trim();
-
     return RefreshIndicator(
       onRefresh: () async => _init(),
       child: ListView(
@@ -439,21 +432,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             onPrev: _dayIndex > 0 ? () => setState(() => _dayIndex--) : null,
             onNext: _dayIndex < list.length - 1 ? () => setState(() => _dayIndex++) : null,
           ),
-          const SizedBox(height: 10),
-
-          // 職業選択（最初の画面で選ぶ想定。ここでは分析画面内でも変更可能に）
-          _JobPickerCard(
-            jobs: sortedJobs,
-            selectedJob: effectiveJobKey,
-            onSelect: (k) => setState(() => _jobKey = k),
-          ),
           const SizedBox(height: 12),
 
-          // Hero Overview (Rank + Weather)
           _HeroOverviewCard(day: day),
           const SizedBox(height: 12),
 
-          // 今日の判断材料（重要事実 → 今日の判断材料）
           if (day.eventTrafficFacts.isNotEmpty) ...[
             _SectionTitle(icon: Icons.flash_on, title: '今日の判断材料'),
             const SizedBox(height: 8),
@@ -461,70 +444,64 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             const SizedBox(height: 12),
           ],
 
-          // ピーク時間（職業別）
-          if (jobPeaks.isNotEmpty) ...[
-            _SectionTitle(icon: Icons.access_time, title: '$jobLabelのピーク時間'),
+          final taxiPeaks = (day.peakWindows['taxi'] ?? '').trim();
+          if (taxiPeaks.isNotEmpty) ...[
+            _SectionTitle(icon: Icons.local_taxi, title: 'タクシーのピーク時間'),
             const SizedBox(height: 8),
             _InfoCard(
-              leading: const Icon(Icons.timeline),
-              title: jobPeaks,
-              subtitle: '混む時間＝取りに行く価値がある時間。悪天候・遅延日はピークが“伸びる/ズレる”ことがあります。',
+              leading: const Icon(Icons.access_time),
+              title: taxiPeaks,
+              subtitle: '「混む時間＝取りに行く価値がある時間」です。雪・遅延日はピークが“伸びる”傾向があります。',
             ),
             const SizedBox(height: 12),
           ],
 
-          // 打ち手（要点） - 職業別に最も目立つ＆高密度
-          _SectionTitle(icon: Icons.assistant, title: '$jobLabelの打ち手（要点）'),
+          final taxiKeypoint = _extractJobKeypoint(day.dailyScheduleAndImpact, 'タクシー');
+          _SectionTitle(icon: Icons.local_taxi, title: 'タクシーの打ち手（要点）'),
           const SizedBox(height: 8),
           _DecisionCard(
-            headline: jobKeypoint.isNotEmpty
-                ? jobKeypoint
+            headline: taxiKeypoint.isNotEmpty
+                ? taxiKeypoint
                 : '本日は「安全確保」を最優先に、状況で“取りに行く時間”を切り替える設計が鍵です。',
-            bullets: _suggestDecisionBullets(day, jobLabel: jobLabel),
+            bullets: _suggestDecisionBullets(day),
           ),
           const SizedBox(height: 12),
 
-          // イベント・交通情報（見やすく段落化）
           _SectionTitle(icon: Icons.event, title: 'イベント・交通情報（詳細）'),
           const SizedBox(height: 8),
-          _EventTrafficDetailCard(
-            facts: day.eventTrafficFacts,
-            fallbackText: day.dailyScheduleAndImpact,
-          ),
+          _EventTrafficDetailCard(facts: day.eventTrafficFacts, fallbackText: day.dailyScheduleAndImpact),
           const SizedBox(height: 12),
 
-          // 時間ごとの天気＆アドバイス
           _SectionTitle(icon: Icons.schedule, title: '時間ごとの天気＆アドバイス'),
           const SizedBox(height: 8),
           if (day.timeline != null) ...[
             _TimeSlotCard(
               label: '朝（06-12）',
               slot: day.timeline!.morning,
-              jobHint: jobHintMorning,
+              jobHint: day.timeline!.morning.advice['taxi'] ?? '',
             ),
             const SizedBox(height: 10),
             _TimeSlotCard(
               label: '昼（12-18）',
               slot: day.timeline!.daytime,
-              jobHint: jobHintDaytime,
+              jobHint: day.timeline!.daytime.advice['taxi'] ?? '',
             ),
             const SizedBox(height: 10),
             _TimeSlotCard(
               label: '夜（18-24）',
               slot: day.timeline!.night,
-              jobHint: jobHintNight,
+              jobHint: day.timeline!.night.advice['taxi'] ?? '',
             ),
             const SizedBox(height: 12),
           ] else ...[
             _InfoCard(
               leading: const Icon(Icons.info_outline),
               title: '時間帯データがありません',
-              subtitle: 'main.py側の天気取得/整形に失敗している可能性があります。',
+              subtitle: 'main.py側のOpen-Meteo取得/整形に失敗している可能性があります。',
             ),
             const SizedBox(height: 12),
           ],
 
-          // 詳細レポート：重複を避け「総括＆職業別」だけ表示
           _SectionTitle(icon: Icons.lightbulb, title: '今日のレポート（詳細）'),
           const SizedBox(height: 8),
           _ReportCard(reportText: day.dailyScheduleAndImpact),
@@ -544,14 +521,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
             itemCount: keys.length,
-            separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.08)),
+            separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.10)),
             itemBuilder: (_, i) {
               final k = keys[i];
               final selected = k == _areaKey;
               return ListTile(
                 title: Text(
                   _prettyAreaName(k),
-                  style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600),
+                  style: TextStyle(fontWeight: selected ? FontWeight.w900 : FontWeight.w700),
                 ),
                 trailing: selected ? const Icon(Icons.check) : null,
                 onTap: () {
@@ -559,7 +536,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   setState(() {
                     _areaKey = k;
                     _dayIndex = 0;
-                    _jobKey = null;
                   });
                 },
               );
@@ -574,24 +550,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return areaKey.replaceAll('_', ' ').trim();
   }
 
-  String _prettyJobName(String jobKey) {
-    // 必要ならここで辞書を足してOK
-    const map = {
-      'taxi': 'タクシー',
-      'delivery': 'デリバリー',
-      'hotel': 'ホテル',
-      'restaurant': '飲食店',
-      'retail': '小売',
-      'transport': '交通',
-    };
-    return map[jobKey] ?? jobKey;
-  }
-
   String _extractJobKeypoint(String report, String jobName) {
     if (report.trim().isEmpty) return '';
     final lines = report.split('\n').map((e) => e.trim()).toList();
 
-    // 「・タクシー: ...」などを探す
     for (final line in lines) {
       if (line.isEmpty) continue;
       if (line.contains(jobName) && line.contains(':')) {
@@ -604,7 +566,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return '';
   }
 
-  List<String> _suggestDecisionBullets(ForecastDay day, {required String jobLabel}) {
+  List<String> _suggestDecisionBullets(ForecastDay day) {
     final rainAm = (day.weatherOverview.rainAm ?? '').trim();
     final rainPm = (day.weatherOverview.rainPm ?? '').trim();
     final warning = day.weatherOverview.warning.trim();
@@ -618,16 +580,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (rainAm.isNotEmpty || rainPm.isNotEmpty) {
       bullets.add('☔ 午前$rainAm / 午後$rainPm：需要が動く時間にだけ寄せる（ムダ待機を削る）');
     } else {
-      bullets.add('☔ 降水が読みにくい日は「出る/出ない」ではなく「時間帯で出る」が勝ち筋');
+      bullets.add('☔ 降水の不確実性が高い日は「出る/出ない」ではなく「時間帯で出る」が勝ち筋');
     }
 
     if (day.eventTrafficFacts.isNotEmpty) {
-      bullets.add('🚦 交通の乱れがある日は「目的地の偏り」が出る→戻り導線（駅/病院/中心街）を押さえる');
+      bullets.add('🚦 交通の乱れがある日は「目的地の偏り」が出る→“人が戻る導線”を押さえる');
     } else {
-      bullets.add('🚦 交通情報が薄い日は“定番導線”の回転で拾う（駅・病院・商業施設など）');
+      bullets.add('🚦 交通情報が薄い日は、駅・病院・商業施設など“定番導線”の回転で拾う');
     }
 
-    bullets.add('🎯 $jobLabelは「待つ場所」より「取れる時間」を固定すると判断が速い');
     bullets.add('🧠 迷ったら「事故るリスク＞取り逃す損失」：判断基準を先に固定');
 
     return bullets;
@@ -686,74 +647,22 @@ class _AreaAndDateHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Chip(label: Text(dateLabel, style: const TextStyle(fontWeight: FontWeight.w700))),
-        const SizedBox(width: 10),
-        IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left), tooltip: '前日'),
-        Text('${dayIndex + 1}/$totalDays', style: t.bodySmall),
-        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right), tooltip: '翌日'),
-      ],
-    );
-  }
-}
-
-class _JobPickerCard extends StatelessWidget {
-  final List<String> jobs;
-  final String selectedJob;
-  final ValueChanged<String> onSelect;
-
-  const _JobPickerCard({
-    required this.jobs,
-    required this.selectedJob,
-    required this.onSelect,
-  });
-
-  String _prettyJob(String k) {
-    const map = {
-      'taxi': 'タクシー',
-      'delivery': 'デリバリー',
-      'hotel': 'ホテル',
-      'restaurant': '飲食店',
-      'retail': '小売',
-      'transport': '交通',
-    };
-    return map[k] ?? k;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('職業を選択', style: t.titleMedium),
-            const SizedBox(height: 8),
-            if (jobs.isEmpty)
-              Text('職業データがありません（peak_windows / timeline.advice を確認）', style: t.bodySmall)
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: jobs.map((k) {
-                  final selected = k == selectedJob;
-                  return ChoiceChip(
-                    label: Text(_prettyJob(k), style: const TextStyle(fontWeight: FontWeight.w800)),
-                    selected: selected,
-                    selectedColor: accent.withOpacity(0.22),
-                    backgroundColor: Colors.white.withOpacity(0.06),
-                    onSelected: (_) => onSelect(k),
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 6),
-            Text('※「ピーク時間」「打ち手」「時間帯アドバイス」がこの職業に切り替わります。', style: t.bodySmall),
-          ],
+        Chip(
+          label: Text(dateLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
         ),
-      ),
+        const SizedBox(width: 10),
+        IconButton(
+          onPressed: onPrev,
+          icon: const Icon(Icons.chevron_left),
+          tooltip: '前日',
+        ),
+        Text('${dayIndex + 1}/$totalDays', style: t.bodySmall),
+        IconButton(
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right),
+          tooltip: '翌日',
+        ),
+      ],
     );
   }
 }
@@ -771,7 +680,7 @@ class _HeroOverviewCard extends StatelessWidget {
     final rainPm = day.weatherOverview.rainPm?.trim();
     final rainNight = day.weatherOverview.rainNight?.trim();
 
-    final rainLine = (rainAm != null && rainAm.isNotEmpty && rainPm != null && rainPm.isNotEmpty)
+    final rainLine = (rainAm != null && rainPm != null)
         ? '午前${rainAm} / 午後${rainPm}${(rainNight != null && rainNight.isNotEmpty) ? ' / 夜${rainNight}' : ''}'
         : day.weatherOverview.rain;
 
@@ -781,7 +690,6 @@ class _HeroOverviewCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Rank badge
             Container(
               width: 78,
               height: 78,
@@ -798,8 +706,6 @@ class _HeroOverviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-
-            // Weather overview
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,7 +736,7 @@ class _HeroOverviewCard extends StatelessWidget {
                   if (day.weatherOverview.warning.trim().isNotEmpty && day.weatherOverview.warning.trim() != '-')
                     Text(
                       '⚠️ ${day.weatherOverview.warning}',
-                      style: t.bodySmall?.copyWith(color: Colors.white.withOpacity(0.85)),
+                      style: t.bodySmall,
                     ),
                 ],
               ),
@@ -845,12 +751,12 @@ class _HeroOverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.92), fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.95), fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -903,18 +809,16 @@ class _FactsCard extends StatelessWidget {
           children: [
             Text('“今日の判断が変わる情報”だけを短く。', style: t.bodySmall),
             const SizedBox(height: 10),
-            ...facts.take(8).map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('• ', style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w800)),
-                        Expanded(child: Text(s, style: t.bodyMedium)),
-                      ],
-                    ),
+            ...facts.take(8).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('• ', style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w900)),
+                      Expanded(child: Text(s, style: t.bodyMedium)),
+                    ],
                   ),
-                ),
+                )),
           ],
         ),
       ),
@@ -974,6 +878,7 @@ class _DecisionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final accent = Theme.of(context).colorScheme.primary;
+    final ext = Theme.of(context).extension<_EagleEyeColors>()!;
 
     return Card(
       child: Padding(
@@ -981,36 +886,33 @@ class _DecisionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // headline
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.12),
+                color: accent.withOpacity(0.14),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: accent.withOpacity(0.25)),
+                border: Border.all(color: accent.withOpacity(0.35)),
               ),
               child: Text(
                 headline,
-                style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w900, color: ext.fg),
               ),
             ),
             const SizedBox(height: 10),
-            Text('今日の動き方（迷いを減らす）', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+            Text('今日の動き方（迷いを減らす）', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            ...bullets.map(
-              (b) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.check_circle_outline, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(b, style: t.bodyMedium)),
-                  ],
-                ),
-              ),
-            ),
+            ...bullets.map((b) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 18, color: ext.fg),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(b, style: t.bodyMedium)),
+                    ],
+                  ),
+                )),
           ],
         ),
       ),
@@ -1030,8 +932,8 @@ class _EventTrafficDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<_EagleEyeColors>()!;
 
-    // factsが無いときだけ fallbackTextから薄く拾う
     final items = facts.isNotEmpty ? facts : _extractEventTrafficFromReport(fallbackText);
 
     return Card(
@@ -1045,26 +947,25 @@ class _EventTrafficDetailCard extends StatelessWidget {
             if (items.isEmpty)
               Text('特段の情報は見つかりませんでした。', style: t.bodyMedium)
             else
-              ...items.take(10).map(
-                    (s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.info_outline, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(s, style: t.bodyMedium)),
-                          ],
-                        ),
+              ...items.take(10).map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: ext.card2.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white.withOpacity(0.10)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(s, style: t.bodyMedium)),
+                        ],
                       ),
                     ),
-                  ),
+                  )),
           ],
         ),
       ),
@@ -1100,10 +1001,7 @@ class _TimeSlotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-
-    // 10%単位に丸め（文字列でも壊れにくく）
-    final rainRounded = _roundPercent(slot.rain);
-    final humidityRounded = _roundPercent(slot.humidity);
+    final ext = Theme.of(context).extension<_EagleEyeColors>()!;
 
     return Card(
       child: Padding(
@@ -1111,7 +1009,6 @@ class _TimeSlotCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // header row
             Row(
               children: [
                 Expanded(child: Text(label, style: t.titleMedium)),
@@ -1119,8 +1016,6 @@ class _TimeSlotCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-
-            // temp line（時間帯の最高/最低）
             Wrap(
               spacing: 10,
               runSpacing: 6,
@@ -1130,28 +1025,26 @@ class _TimeSlotCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-
-            // humidity/rain with labels
             Row(
               children: [
-                Expanded(child: _kv('予想降水確率', rainRounded)),
+                Expanded(child: _kv('予想降水確率', slot.rain)),
                 const SizedBox(width: 10),
-                Expanded(child: _kv('予想湿度', humidityRounded)),
+                Expanded(child: _kv('予想湿度', slot.humidity)),
               ],
             ),
-
             if (jobHint.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  color: ext.card2.withOpacity(0.55),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.10)),
                 ),
                 child: Text(
                   jobHint.trim(),
-                  style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: t.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -1161,36 +1054,16 @@ class _TimeSlotCard extends StatelessWidget {
     );
   }
 
-  static String _roundPercent(String s) {
-    // "68%" "68" "0.68" などを想定し、10%単位に丸める
-    final t = s.trim();
-    if (t.isEmpty || t == '-') return s;
-
-    // ％除去
-    final noPct = t.replaceAll('%', '');
-
-    // 小数の確率（0.68）っぽいなら100倍
-    final v = double.tryParse(noPct);
-    if (v == null) return s;
-
-    double pct = v;
-    if (pct > 0 && pct <= 1) pct = pct * 100.0;
-
-    final rounded = (pct / 10.0).round() * 10;
-    final clamped = rounded.clamp(0, 100);
-    return '${clamped.toInt()}%';
-  }
-
   static Widget _pill(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.92), fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.95), fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -1199,16 +1072,16 @@ class _TimeSlotCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withOpacity(0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             k,
-            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.70), fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.80), fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(v, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
@@ -1226,7 +1099,6 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
 
-    // 重複を避けて「総括」「職業別」だけ抽出
     final summary = _extractSection(reportText, '■総括');
     final actions = _extractSection(reportText, '■職業別の打ち手（要点）');
 
@@ -1234,8 +1106,6 @@ class _ReportCard extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        backgroundColor: Colors.transparent,
-        collapsedBackgroundColor: Colors.transparent,
         title: Text('開くと「総括」と「職業別の要点」だけ表示します', style: t.bodySmall),
         children: [
           if (summary.isNotEmpty) ...[
@@ -1272,9 +1142,8 @@ class _ReportCard extends StatelessWidget {
 
   static Widget _prettyBullets(String text) {
     final lines = text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-
-    final hasDot = lines.any((l) => l.startsWith('・'));
-    final items = hasDot ? lines.where((l) => l.startsWith('・')).toList() : lines;
+    final bulletLines = lines.where((l) => l.startsWith('・')).toList();
+    final items = bulletLines.isNotEmpty ? bulletLines : lines;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1285,16 +1154,8 @@ class _ReportCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '• ',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white.withOpacity(0.85)),
-              ),
-              Expanded(
-                child: Text(
-                  line,
-                  style: TextStyle(color: Colors.white.withOpacity(0.92), height: 1.5),
-                ),
-              ),
+              Text('• ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white.withOpacity(0.92))),
+              Expanded(child: Text(line, style: TextStyle(color: Colors.white.withOpacity(0.96), height: 1.55))),
             ],
           ),
         );
