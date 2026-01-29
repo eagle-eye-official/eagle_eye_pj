@@ -6,22 +6,66 @@ void main() {
   runApp(const EagleEyeApp());
 }
 
+/// ===========================
+/// App
+/// ===========================
 class EagleEyeApp extends StatelessWidget {
   const EagleEyeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Navy-first, Material3 dark theme
+    const navyBg = Color(0xFF0B1220);
+    const cardBg = Color(0x1AFFFFFF); // 10% white
+    const cardBorder = Color(0x22FFFFFF);
+
+    final scheme = ColorScheme.fromSeed(
+      seedColor: Colors.blue,
+      brightness: Brightness.dark,
+    ).copyWith(
+      background: navyBg,
+      surface: const Color(0xFF101A2E),
+    );
+
     return MaterialApp(
       title: 'Eagle Eye',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
+        colorScheme: scheme,
+        scaffoldBackgroundColor: navyBg,
+        cardColor: cardBg,
+        dividerColor: Colors.white.withOpacity(0.12),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(fontWeight: FontWeight.w800),
+          titleMedium: TextStyle(fontWeight: FontWeight.w800),
+          titleSmall: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: CardTheme(
+          color: cardBg,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: cardBorder, width: 1),
+          ),
+        ),
       ),
       home: const EagleEyeHome(),
     );
   }
 }
 
+/// ===========================
+/// Home
+/// - Today/Tomorrow/DayAfter: PageView (swipe)
+/// - Later days: Calendar screen
+/// - Job selector: Bottom (B)
+/// ===========================
 class EagleEyeHome extends StatefulWidget {
   const EagleEyeHome({super.key});
 
@@ -33,10 +77,53 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
   late Future<EagleEyeData> _future;
   String? _selectedAreaKey;
 
+  String _selectedJobKey = JobKeys.taxi; // default
+
+  final PageController _pageController = PageController(initialPage: 0);
+  int _pageIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _future = EagleEyeData.loadFromAsset('assets/eagle_eye_data.json');
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _openCalendar(BuildContext context, List<DayForecast> forecasts, String areaLabel) async {
+    final base = _baseTodayLocal();
+    final last = base.add(Duration(days: (forecasts.isNotEmpty ? forecasts.length - 1 : 0)));
+
+    final picked = await Navigator.of(context).push<DateTime?>(
+      MaterialPageRoute(
+        builder: (_) => CalendarScreen(
+          title: 'カレンダー － $areaLabel',
+          firstDate: base,
+          lastDate: last,
+          initialDate: base.add(Duration(days: _pageIndex.clamp(0, 2))),
+          forecasts: forecasts,
+          baseDate: base,
+          selectedJobKey: _selectedJobKey,
+        ),
+      ),
+    );
+
+    if (picked == null) return;
+
+    final idx = picked.difference(base).inDays;
+    if (idx >= 0 && idx < forecasts.length) {
+      // if within 0..2, jump page; else stay (calendar used for later)
+      if (idx <= 2) {
+        _pageController.jumpToPage(idx);
+        setState(() => _pageIndex = idx);
+      } else {
+        // optional: show a dialog/preview for later day - already handled inside CalendarScreen
+      }
+    }
   }
 
   @override
@@ -52,6 +139,7 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
             body: const Center(child: CircularProgressIndicator()),
           );
         }
+
         if (snapshot.hasError || !snapshot.hasData) {
           return Scaffold(
             appBar: AppBar(title: const Text('Eagle Eye')),
@@ -69,31 +157,59 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
         final data = snapshot.data!;
         final areaKeys = data.areaKeys;
 
-        // ★ 地域を絞った点の「完璧化」：UI側は一切ハードコードせず JSON から動的生成
-        // ＝ main.py が major にしていれば、ここも自動で major のみになる（函館も JSON にある限り残る）
+        // UI側はハードコードしない：JSONから動的生成
         _selectedAreaKey ??= areaKeys.isNotEmpty ? areaKeys.first : null;
 
         final selectedKey = _selectedAreaKey;
-        final forecasts =
-            selectedKey == null ? <DayForecast>[] : data.byArea[selectedKey] ?? <DayForecast>[];
+        final forecasts = selectedKey == null ? <DayForecast>[] : (data.byArea[selectedKey] ?? <DayForecast>[]);
+
+        final areaLabel = selectedKey == null ? '' : data.areaLabel(selectedKey);
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Eagle Eye'),
+            title: Row(
+              children: [
+                const Text('Eagle Eye'),
+                const SizedBox(width: 10),
+                if (areaLabel.isNotEmpty)
+                  Text(
+                    areaLabel,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withOpacity(0.78),
+                    ),
+                  ),
+              ],
+            ),
             actions: [
+              if (forecasts.isNotEmpty)
+                IconButton(
+                  tooltip: 'カレンダー',
+                  onPressed: () => _openCalendar(context, forecasts, areaLabel),
+                  icon: const Icon(Icons.calendar_month),
+                ),
               if (areaKeys.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: selectedKey,
+                      dropdownColor: const Color(0xFF101A2E),
                       items: areaKeys
-                          .map((k) => DropdownMenuItem<String>(
-                                value: k,
-                                child: Text(data.areaLabel(k)),
-                              ))
+                          .map(
+                            (k) => DropdownMenuItem<String>(
+                              value: k,
+                              child: Text(data.areaLabel(k)),
+                            ),
+                          )
                           .toList(),
-                      onChanged: (v) => setState(() => _selectedAreaKey = v),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedAreaKey = v;
+                          _pageIndex = 0;
+                          _pageController.jumpToPage(0);
+                        });
+                      },
                     ),
                   ),
                 ),
@@ -101,15 +217,149 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
           ),
           body: forecasts.isEmpty
               ? const Center(child: Text('データがありません'))
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                  itemCount: forecasts.length,
-                  itemBuilder: (context, i) {
-                    return DayCard(day: forecasts[i]);
-                  },
+              : Column(
+                  children: [
+                    // Swipable pages for first 3 days
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _min(3, forecasts.length),
+                        onPageChanged: (i) => setState(() => _pageIndex = i),
+                        itemBuilder: (context, i) {
+                          final label = (i == 0) ? '今日' : (i == 1) ? '明日' : '明後日';
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 88), // leave room for bottom job bar
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _TopPills(
+                                  left: label,
+                                  right: forecasts[i].date,
+                                ),
+                                const SizedBox(height: 10),
+                                DayCard(
+                                  day: forecasts[i],
+                                  selectedJobKey: _selectedJobKey,
+                                ),
+                                const SizedBox(height: 16),
+                                _HintRow(
+                                  icon: Icons.swipe,
+                                  text: '左右にスワイプで 今日〜明後日',
+                                ),
+                                const SizedBox(height: 8),
+                                _HintRow(
+                                  icon: Icons.calendar_month,
+                                  text: '4日目以降はカレンダーから',
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
+          // Bottom job selector (B)
+          bottomNavigationBar: JobSelectorBar(
+            selectedJobKey: _selectedJobKey,
+            onChanged: (k) => setState(() => _selectedJobKey = k),
+          ),
         );
       },
+    );
+  }
+
+  static int _min(int a, int b) => a < b ? a : b;
+
+  DateTime _baseTodayLocal() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+}
+
+/// ===========================
+/// Calendar Screen (later days)
+/// ===========================
+class CalendarScreen extends StatefulWidget {
+  final String title;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final DateTime initialDate;
+
+  final List<DayForecast> forecasts;
+  final DateTime baseDate;
+
+  final String selectedJobKey;
+
+  const CalendarScreen({
+    super.key,
+    required this.title,
+    required this.firstDate,
+    required this.lastDate,
+    required this.initialDate,
+    required this.forecasts,
+    required this.baseDate,
+    required this.selectedJobKey,
+  });
+
+  @override
+  State<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends State<CalendarScreen> {
+  late DateTime _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialDate;
+  }
+
+  DayForecast? _forecastFor(DateTime d) {
+    final idx = d.difference(widget.baseDate).inDays;
+    if (idx < 0 || idx >= widget.forecasts.length) return null;
+    return widget.forecasts[idx];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final day = _forecastFor(_selected);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: CalendarDatePicker(
+                initialDate: _selected,
+                firstDate: widget.firstDate,
+                lastDate: widget.lastDate,
+                onDateChanged: (d) => setState(() => _selected = d),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (day == null)
+            Text('この日のデータがありません', style: theme.textTheme.bodyMedium)
+          else
+            DayCard(
+              day: day,
+              selectedJobKey: widget.selectedJobKey,
+              compactHeader: true,
+            ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).pop(_selected),
+        icon: const Icon(Icons.check),
+        label: const Text('この日へ'),
+      ),
     );
   }
 }
@@ -160,20 +410,20 @@ class DayForecast {
   final String? areaKey;
   final String? areaName;
 
-  final String date; // "MM月dd日 (X)" のラベル
+  final String date; // "MM月dd日 (X)"
   final bool isLongTerm;
 
   final String rank; // S/A/B/C
   final List<String> rankReasons; // max 5
   final RankDrivers rankDrivers; // pos/neg
-  final String evidenceLevel; // high/med/low
-  final int confidence; // 0..100
+  final String evidenceLevel; // high/med/low (UIには出さない)
+  final int confidence; // 0..100 (UIには出さない)
 
   final WeatherOverview weatherOverview;
   final List<String> eventTrafficFacts;
 
-  final Map<String, String> peakWindows; // job -> text
-  final Map<String, String> jobActions; // job -> text
+  final Map<String, String> peakWindows;
+  final Map<String, String> jobActions;
 
   final String dailyScheduleAndImpact;
   final Timeline? timeline;
@@ -196,7 +446,7 @@ class DayForecast {
     required this.timeline,
   });
 
-  static const _jobs = ['taxi', 'delivery', 'restaurant', 'retail', 'hotel'];
+  static const _jobs = JobKeys.all;
 
   factory DayForecast.fromJson(Map<String, dynamic> j) {
     String s(dynamic v, [String fallback = '']) => (v == null) ? fallback : v.toString();
@@ -233,7 +483,6 @@ class DayForecast {
     final evidence = s(j['evidence_level'], 'low').trim().toLowerCase();
     final conf = i(j['confidence'], 0).clamp(0, 100);
 
-    // UI安全：rankは不正ならCに丸める
     final normalizedRank = {'S', 'A', 'B', 'C'}.contains(rank) ? rank : 'C';
     final normalizedEvidence = {'high', 'med', 'low'}.contains(evidence) ? evidence : 'low';
 
@@ -265,7 +514,9 @@ class RankDrivers {
 
   factory RankDrivers.fromJson(dynamic v) {
     List<String> strList(dynamic x) {
-      if (x is List) return x.map((e) => e?.toString().trim() ?? '').where((s) => s.isNotEmpty).toList();
+      if (x is List) {
+        return x.map((e) => e?.toString().trim() ?? '').where((s) => s.isNotEmpty).toList();
+      }
       return const [];
     }
 
@@ -363,7 +614,7 @@ class TimelineSlot {
     required this.advice,
   });
 
-  static const _jobs = ['taxi', 'delivery', 'restaurant', 'retail', 'hotel'];
+  static const _jobs = JobKeys.all;
 
   factory TimelineSlot.fromJson(dynamic v) {
     String s(dynamic x, [String fallback = '-']) => (x == null) ? fallback : x.toString();
@@ -392,6 +643,7 @@ class TimelineSlot {
         advice: adv(v['advice']),
       );
     }
+
     return TimelineSlot(
       weather: '☁️',
       temp: '-',
@@ -409,119 +661,114 @@ class TimelineSlot {
 /// ===========================
 class DayCard extends StatelessWidget {
   final DayForecast day;
-  const DayCard({super.key, required this.day});
+  final String selectedJobKey;
+  final bool compactHeader;
+
+  const DayCard({
+    super.key,
+    required this.day,
+    required this.selectedJobKey,
+    this.compactHeader = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final rankColor = _rankColor(day.rank, theme.colorScheme);
-    final evidenceText = _evidenceLabel(day.evidenceLevel);
-    final confText = '${day.confidence}%';
+    final rankColor = _rankColor(day.rank);
+    final jobLabel = JobKeys.label(selectedJobKey);
+
+    final keyFacts = _pickKeyFacts(day);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: date + rank badge
+            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
                     day.date,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: (compactHeader ? theme.textTheme.titleSmall : theme.textTheme.titleMedium)
+                        ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                 ),
                 _RankBadge(rank: day.rank, color: rankColor),
               ],
             ),
-            const SizedBox(height: 6),
-
-            // Evidence row
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _Chip(text: '根拠: $evidenceText'),
-                _Chip(text: '信頼度: $confText'),
-                if (day.isLongTerm) const _Chip(text: '長期予測'),
-              ],
-            ),
-
             const SizedBox(height: 10),
 
-            // Weather overview
+            // Weather overview (strong visual)
             _SectionTitle(icon: Icons.cloud, title: '天気'),
-            Text(
-              '${day.weatherOverview.condition}  ${day.weatherOverview.high} / ${day.weatherOverview.low}  ｜  降水: ${day.weatherOverview.rain}',
-              style: theme.textTheme.bodyMedium,
+            const SizedBox(height: 6),
+            _InfoLine(
+              leading: day.weatherOverview.condition,
+              text:
+                  '${day.weatherOverview.high} / ${day.weatherOverview.low}   •   降水 ${day.weatherOverview.rain}',
             ),
             if (day.weatherOverview.warning.trim().isNotEmpty && day.weatherOverview.warning != '-')
               Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('注意: ${day.weatherOverview.warning}', style: theme.textTheme.bodySmall),
+                padding: const EdgeInsets.only(top: 6),
+                child: _InfoLine(
+                  leading: '⚠️',
+                  text: '注意 ${day.weatherOverview.warning}',
+                  emphasis: true,
+                ),
               ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
-            // Rank reasons
+            // Key facts (instead of "根拠/信頼度")
+            if (keyFacts.isNotEmpty) ...[
+              _SectionTitle(icon: Icons.bolt, title: '今日の要点'),
+              const SizedBox(height: 6),
+              ...keyFacts.map((s) => _Bullet(s)).toList(),
+              const SizedBox(height: 14),
+            ],
+
+            // Rank reasons (optional; keep but not noisy)
             if (day.rankReasons.isNotEmpty) ...[
-              _SectionTitle(icon: Icons.fact_check, title: 'ランク根拠'),
+              _SectionTitle(icon: Icons.fact_check, title: '見立て'),
+              const SizedBox(height: 6),
               ...day.rankReasons.map((s) => _Bullet(s)).toList(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
             ],
 
-            // Drivers
-            if (day.rankDrivers.positive.isNotEmpty || day.rankDrivers.negative.isNotEmpty) ...[
-              _SectionTitle(icon: Icons.trending_up, title: '増減要因'),
-              if (day.rankDrivers.positive.isNotEmpty) ...[
-                Text('増える', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
-                ...day.rankDrivers.positive.map((s) => _Bullet(s)).toList(),
-              ],
-              if (day.rankDrivers.negative.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text('減る', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
-                ...day.rankDrivers.negative.map((s) => _Bullet(s)).toList(),
-              ],
-              const SizedBox(height: 10),
-            ],
+            // Job action (personalized)
+            _SectionTitle(icon: Icons.work, title: 'あなた向け（$jobLabel）'),
+            const SizedBox(height: 6),
+            _ActionBox(
+              text: (day.jobActions[selectedJobKey] ?? '').trim().isEmpty
+                  ? '—'
+                  : (day.jobActions[selectedJobKey] ?? '').trim(),
+            ),
 
-            // Event / Traffic facts
-            if (day.eventTrafficFacts.isNotEmpty) ...[
-              _SectionTitle(icon: Icons.directions, title: 'イベント・交通（要点）'),
-              ...day.eventTrafficFacts.map((s) => _Bullet(s)).toList(),
-              const SizedBox(height: 10),
-            ],
+            const SizedBox(height: 14),
 
-            // Job actions
-            _SectionTitle(icon: Icons.work, title: '職業別の打ち手（要点）'),
-            _JobRow(label: 'タクシー', value: day.jobActions['taxi'] ?? ''),
-            _JobRow(label: 'デリバリー', value: day.jobActions['delivery'] ?? ''),
-            _JobRow(label: '飲食店', value: day.jobActions['restaurant'] ?? ''),
-            _JobRow(label: '小売', value: day.jobActions['retail'] ?? ''),
-            _JobRow(label: 'ホテル', value: day.jobActions['hotel'] ?? ''),
-
-            const SizedBox(height: 10),
-
-            // Timeline (optional)
+            // Timeline (show only selected job advice)
             if (day.timeline != null) ...[
               _SectionTitle(icon: Icons.schedule, title: '時間帯'),
-              _SlotCard(title: '朝', slot: day.timeline!.morning),
-              const SizedBox(height: 8),
-              _SlotCard(title: '昼', slot: day.timeline!.daytime),
-              const SizedBox(height: 8),
-              _SlotCard(title: '夜', slot: day.timeline!.night),
+              const SizedBox(height: 6),
+              _SlotCard(title: '朝', slot: day.timeline!.morning, jobKey: selectedJobKey),
               const SizedBox(height: 10),
+              _SlotCard(title: '昼', slot: day.timeline!.daytime, jobKey: selectedJobKey),
+              const SizedBox(height: 10),
+              _SlotCard(title: '夜', slot: day.timeline!.night, jobKey: selectedJobKey),
+              const SizedBox(height: 14),
             ],
 
             // Report text
             if (day.dailyScheduleAndImpact.trim().isNotEmpty) ...[
               _SectionTitle(icon: Icons.description, title: 'レポート'),
-              Text(day.dailyScheduleAndImpact, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 6),
+              Text(
+                day.dailyScheduleAndImpact.trim(),
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(0.85), height: 1.45),
+              ),
             ],
           ],
         ),
@@ -529,28 +776,87 @@ class DayCard extends StatelessWidget {
     );
   }
 
-  static Color _rankColor(String rank, ColorScheme scheme) {
-    switch (rank) {
-      case 'S':
-        return scheme.error;
-      case 'A':
-        return Colors.orange;
-      case 'B':
-        return Colors.blue;
-      default:
-        return Colors.grey;
+  static List<String> _pickKeyFacts(DayForecast day) {
+    // Prefer event/traffic facts; fallback to drivers
+    final out = <String>[];
+
+    for (final s in day.eventTrafficFacts) {
+      if (out.length >= 3) break;
+      out.add(s);
     }
+    if (out.isNotEmpty) return out;
+
+    // fallback
+    for (final s in day.rankDrivers.positive) {
+      if (out.length >= 2) break;
+      out.add('増える: $s');
+    }
+    for (final s in day.rankDrivers.negative) {
+      if (out.length >= 3) break;
+      out.add('減る: $s');
+    }
+    return out;
   }
 
-  static String _evidenceLabel(String ev) {
-    switch (ev) {
-      case 'high':
-        return '高';
-      case 'med':
-        return '中';
+  static Color _rankColor(String rank) {
+    switch (rank) {
+      case 'S':
+        return const Color(0xFFFF5C6C);
+      case 'A':
+        return const Color(0xFFFFB020);
+      case 'B':
+        return const Color(0xFF4EA1FF);
       default:
-        return '低';
+        return const Color(0xFFB3B7C3);
     }
+  }
+}
+
+class _TopPills extends StatelessWidget {
+  final String left;
+  final String right;
+  const _TopPills({required this.left, required this.right});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        _Pill(text: left, strong: true),
+        const SizedBox(width: 8),
+        _Pill(text: right, strong: false),
+        const Spacer(),
+        Icon(Icons.keyboard_arrow_left, color: Colors.white.withOpacity(0.5), size: 18),
+        Icon(Icons.keyboard_arrow_right, color: Colors.white.withOpacity(0.5), size: 18),
+      ],
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String text;
+  final bool strong;
+  const _Pill({required this.text, required this.strong});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = strong ? Colors.white.withOpacity(0.16) : Colors.white.withOpacity(0.10);
+    final border = Colors.white.withOpacity(0.14);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+              color: Colors.white.withOpacity(0.92),
+            ),
+      ),
+    );
   }
 }
 
@@ -562,36 +868,16 @@ class _RankBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        border: Border.all(color: color.withOpacity(0.35)),
+        color: color.withOpacity(0.16),
+        border: Border.all(color: color.withOpacity(0.45)),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         'Rank $rank',
-        style: TextStyle(fontWeight: FontWeight.w800, color: color),
+        style: TextStyle(fontWeight: FontWeight.w900, color: color),
       ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String text;
-  const _Chip({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        // Flutter 3.19互換: surfaceContainerHighest は未定義なので surfaceVariant を使用
-        color: scheme.surfaceVariant.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(text, style: Theme.of(context).textTheme.bodySmall),
     );
   }
 }
@@ -603,16 +889,47 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 6),
-          Text(title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
-        ],
-      ),
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.white.withOpacity(0.9)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: Colors.white.withOpacity(0.92),
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  final String leading;
+  final String text;
+  final bool emphasis;
+
+  const _InfoLine({
+    required this.leading,
+    required this.text,
+    this.emphasis = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.white.withOpacity(emphasis ? 0.95 : 0.85),
+          fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
+        );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(leading, style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: style)),
+      ],
     );
   }
 }
@@ -623,39 +940,45 @@ class _Bullet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Colors.white.withOpacity(0.88),
+          height: 1.45,
+        );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('•  '),
-          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
+          Text('•  ', style: style),
+          Expanded(child: Text(text, style: style)),
         ],
       ),
     );
   }
 }
 
-class _JobRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _JobRow({required this.label, required this.value});
+class _ActionBox extends StatelessWidget {
+  final String text;
+  const _ActionBox({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final v = value.trim().isEmpty ? '—' : value.trim();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 70,
-              child: Text(label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700))),
-          const SizedBox(width: 8),
-          Expanded(child: Text(v, style: Theme.of(context).textTheme.bodySmall)),
-        ],
+    final bg = Colors.white.withOpacity(0.08);
+    final border = Colors.white.withOpacity(0.12);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withOpacity(0.92),
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
       ),
     );
   }
@@ -664,55 +987,216 @@ class _JobRow extends StatelessWidget {
 class _SlotCard extends StatelessWidget {
   final String title;
   final TimelineSlot slot;
+  final String jobKey;
 
-  const _SlotCard({required this.title, required this.slot});
+  const _SlotCard({
+    required this.title,
+    required this.slot,
+    required this.jobKey,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     String v(String s) => s.trim().isEmpty ? '—' : s.trim();
+    final advice = v(slot.advice[jobKey] ?? '');
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        // Flutter 3.19互換: surfaceContainerHighest は未定義なので surfaceVariant を使用
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.4)),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '$title  ${slot.weather}  ${slot.temp}（高${slot.tempHigh} 低${slot.tempLow}）  湿度${slot.humidity}  降水${slot.rain}',
-            style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withOpacity(0.92),
+              height: 1.35,
+            ),
           ),
-          const SizedBox(height: 8),
-          Text('アドバイス', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Text(
+            'アドバイス（${JobKeys.label(jobKey)}）',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withOpacity(0.88),
+            ),
+          ),
           const SizedBox(height: 6),
-          _mini('タクシー', v(slot.advice['taxi'] ?? '')),
-          _mini('デリバリー', v(slot.advice['delivery'] ?? '')),
-          _mini('飲食店', v(slot.advice['restaurant'] ?? '')),
-          _mini('小売', v(slot.advice['retail'] ?? '')),
-          _mini('ホテル', v(slot.advice['hotel'] ?? '')),
+          Text(
+            advice,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white.withOpacity(0.86),
+              height: 1.45,
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _mini(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 70,
-              child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
-        ],
+class _HintRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _HintRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.white.withOpacity(0.55)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(0.62)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// ===========================
+/// Bottom Job Selector (B)
+/// ===========================
+class JobSelectorBar extends StatelessWidget {
+  final String selectedJobKey;
+  final ValueChanged<String> onChanged;
+
+  const JobSelectorBar({
+    super.key,
+    required this.selectedJobKey,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = const Color(0xFF0B1220);
+    final border = Colors.white.withOpacity(0.12);
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+        decoration: BoxDecoration(
+          color: bg.withOpacity(0.92),
+          border: Border(top: BorderSide(color: border)),
+        ),
+        child: Row(
+          children: [
+            for (final k in JobKeys.all) ...[
+              Expanded(
+                child: _JobTab(
+                  label: JobKeys.shortLabel(k),
+                  isActive: k == selectedJobKey,
+                  onTap: () => onChanged(k),
+                ),
+              ),
+              if (k != JobKeys.all.last) const SizedBox(width: 8),
+            ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _JobTab extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _JobTab({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = isActive;
+
+    final bg = active ? Colors.white.withOpacity(0.16) : Colors.white.withOpacity(0.08);
+    final border = active ? Colors.white.withOpacity(0.22) : Colors.white.withOpacity(0.12);
+    final textColor = active ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.75);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: border),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+              color: textColor,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ===========================
+/// Job keys / labels
+/// ===========================
+class JobKeys {
+  static const taxi = 'taxi';
+  static const delivery = 'delivery';
+  static const restaurant = 'restaurant';
+  static const retail = 'retail';
+  static const hotel = 'hotel';
+
+  static const all = [taxi, delivery, restaurant, retail, hotel];
+
+  static String label(String k) {
+    switch (k) {
+      case taxi:
+        return 'タクシー';
+      case delivery:
+        return 'デリバリー';
+      case restaurant:
+        return '飲食店';
+      case retail:
+        return '小売';
+      case hotel:
+        return 'ホテル';
+      default:
+        return k;
+    }
+  }
+
+  static String shortLabel(String k) {
+    switch (k) {
+      case taxi:
+        return 'Taxi';
+      case delivery:
+        return 'Delivery';
+      case restaurant:
+        return 'Food';
+      case retail:
+        return 'Retail';
+      case hotel:
+        return 'Hotel';
+      default:
+        return k;
+    }
   }
 }
