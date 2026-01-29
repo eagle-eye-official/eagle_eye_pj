@@ -25,6 +25,7 @@ class EagleEyeApp extends StatelessWidget {
     );
   }
 
+  // ✅ 2.2: 黒文字問題を潰す（displayColor/bodyColor を白に固定）
   ThemeData _buildTheme() {
     const bg = Color(0xFF0B1220);
     const card = Color(0xFF0F1B2D);
@@ -32,17 +33,34 @@ class EagleEyeApp extends StatelessWidget {
     const accentSoft = Color(0x33FFA135);
 
     final base = ThemeData.dark(useMaterial3: true);
+
+    // ★重要：これで「黒い文字が混ざる」事故を防ぐ
+    final textBase = base.textTheme.apply(
+      bodyColor: Colors.white,
+      displayColor: Colors.white,
+    );
+
     return base.copyWith(
       scaffoldBackgroundColor: bg,
       colorScheme: base.colorScheme.copyWith(
         primary: accent,
         secondary: accent,
         surface: card,
+        onSurface: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: bg,
         elevation: 0,
         centerTitle: false,
+        foregroundColor: Colors.white,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: card,
+        modalBackgroundColor: card,
+      ),
+      listTileTheme: const ListTileThemeData(
+        textColor: Colors.white,
+        iconColor: Colors.white,
       ),
       cardTheme: CardTheme(
         color: card,
@@ -59,10 +77,10 @@ class EagleEyeApp extends StatelessWidget {
         side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
-      textTheme: base.textTheme.copyWith(
-        titleLarge: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        titleMedium: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        titleSmall: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+      textTheme: textBase.copyWith(
+        titleLarge: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
+        titleMedium: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+        titleSmall: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
         bodyLarge: const TextStyle(fontSize: 15, height: 1.55, color: Colors.white),
         bodyMedium: const TextStyle(fontSize: 14, height: 1.55, color: Colors.white),
         bodySmall: TextStyle(
@@ -113,6 +131,18 @@ const List<JobInfo> kJobs = [
 JobInfo jobByKey(String key) {
   return kJobs.firstWhere((j) => j.key == key, orElse: () => kJobs.last);
 }
+
+/// ✅ 2.1: エリアを漢字/日本語表記にする（必要に応じて増やしてOK）
+const Map<String, String> kAreaLabels = {
+  'osaka_kita': '大阪キタ',
+  'osaka_minami': '大阪ミナミ',
+  'hakodate': '函館',
+  'aichi_nagoya': '愛知（名古屋）',
+  'chiba_maihama': '千葉（舞浜）',
+  'fukuoka': '福岡',
+  'hiroshima': '広島',
+  'hyogo_kobe': '兵庫（神戸）',
+};
 
 /// ===============================
 /// Data Models (壊れに強く)
@@ -516,7 +546,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
+  // ✅ 2.1: エリアの日本語化（マップ優先、なければ従来どおり）
   String _prettyAreaName(String areaKey) {
+    final mapped = kAreaLabels[areaKey];
+    if (mapped != null && mapped.trim().isNotEmpty) return mapped;
     return areaKey.replaceAll('_', ' ').trim();
   }
 
@@ -802,7 +835,6 @@ class _HeroOverviewCard extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,7 +857,8 @@ class _HeroOverviewCard extends StatelessWidget {
                     spacing: 10,
                     runSpacing: 6,
                     children: [
-                      _miniPill('🌡️ ${day.weatherOverview.high} / ${day.weatherOverview.low}'),
+                      // ✅ 2.3: 「最高/最低」を timeline から算出して整合させる
+                      _miniPill('🌡️ ${_effectiveHighLow(day)}'),
                       _miniPill('☔ $rainLine'),
                     ],
                   ),
@@ -842,6 +875,38 @@ class _HeroOverviewCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ✅ 2.3: timelineがあるなら、そこから最大/最小を推定して表示を揃える
+  static String _effectiveHighLow(ForecastDay day) {
+    int? p(String s) {
+      final m = RegExp(r'-?\d+').firstMatch(s);
+      return m == null ? null : int.tryParse(m.group(0)!);
+    }
+
+    final tl = day.timeline;
+    if (tl != null) {
+      final slots = [tl.morning, tl.daytime, tl.night];
+
+      final highs = <int>[];
+      final lows = <int>[];
+
+      for (final s in slots) {
+        final h = p(s.tempHigh) ?? p(s.temp);
+        final l = p(s.tempLow) ?? p(s.temp);
+        if (h != null) highs.add(h);
+        if (l != null) lows.add(l);
+      }
+
+      if (highs.isNotEmpty && lows.isNotEmpty) {
+        final hi = highs.reduce((a, b) => a > b ? a : b);
+        final lo = lows.reduce((a, b) => a < b ? a : b);
+        return '最高${hi}℃ / 最低${lo}℃';
+      }
+    }
+
+    // fallback（従来）
+    return '${day.weatherOverview.high} / ${day.weatherOverview.low}';
   }
 
   static Widget _miniPill(String text) {
@@ -998,7 +1063,6 @@ class _DecisionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-
             Text('今日の動き方（迷いを減らす）', style: t.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             ...bullets.map((b) => Padding(
@@ -1112,7 +1176,6 @@ class _TimeSlotCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-
             Wrap(
               spacing: 10,
               runSpacing: 6,
@@ -1122,7 +1185,6 @@ class _TimeSlotCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-
             Row(
               children: [
                 Expanded(child: _kv('予想降水確率', slot.rain)),
@@ -1130,7 +1192,6 @@ class _TimeSlotCard extends StatelessWidget {
                 Expanded(child: _kv('予想湿度', slot.humidity)),
               ],
             ),
-
             if (jobHint.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
