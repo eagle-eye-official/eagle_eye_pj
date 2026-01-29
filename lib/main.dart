@@ -74,7 +74,8 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
         _selectedAreaKey ??= areaKeys.isNotEmpty ? areaKeys.first : null;
 
         final selectedKey = _selectedAreaKey;
-        final forecasts = selectedKey == null ? <DayForecast>[] : data.byArea[selectedKey] ?? <DayForecast>[];
+        final forecasts =
+            selectedKey == null ? <DayForecast>[] : data.byArea[selectedKey] ?? <DayForecast>[];
 
         return Scaffold(
           appBar: AppBar(
@@ -172,7 +173,7 @@ class DayForecast {
   final List<String> eventTrafficFacts;
 
   final Map<String, String> peakWindows; // job -> text
-  final Map<String, String> jobActions;  // job -> text
+  final Map<String, String> jobActions; // job -> text
 
   final String dailyScheduleAndImpact;
   final Timeline? timeline;
@@ -208,7 +209,9 @@ class DayForecast {
     }
 
     List<String> strList(dynamic v) {
-      if (v is List) return v.map((e) => e?.toString().trim() ?? '').where((x) => x.isNotEmpty).toList();
+      if (v is List) {
+        return v.map((e) => e?.toString().trim() ?? '').where((x) => x.isNotEmpty).toList();
+      }
       return const [];
     }
 
@@ -273,14 +276,14 @@ class RankDrivers {
       );
     }
     return const RankDrivers(positive: [], negative: []);
-    }
+  }
 }
 
 class WeatherOverview {
   final String condition; // emoji
-  final String high;      // "最高xx℃"
-  final String low;       // "最低xx℃"
-  final String rain;      // "午前.. / 午後.."
+  final String high; // "最高xx℃"
+  final String low; // "最低xx℃"
+  final String rain; // "午前.. / 午後.."
   final String? rainAm;
   final String? rainPm;
   final String? rainNight;
@@ -579,10 +582,13 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.7),
+        // Flutter 3.19互換: surfaceContainerHighest は未定義なので surfaceVariant を使用
+        color: scheme.surfaceVariant.withOpacity(0.7),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
@@ -603,7 +609,8 @@ class _SectionTitle extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 6),
-          Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -642,7 +649,10 @@ class _JobRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 70, child: Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700))),
+          SizedBox(
+              width: 70,
+              child: Text(label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700))),
           const SizedBox(width: 8),
           Expanded(child: Text(v, style: Theme.of(context).textTheme.bodySmall)),
         ],
@@ -665,7 +675,8 @@ class _SlotCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.35),
+        // Flutter 3.19互換: surfaceContainerHighest は未定義なので surfaceVariant を使用
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.dividerColor.withOpacity(0.4)),
       ),
@@ -695,7 +706,9 @@ class _SlotCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 70, child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+          SizedBox(
+              width: 70,
+              child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(width: 8),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
