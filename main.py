@@ -146,6 +146,34 @@ def get_weather_emoji_openmeteo(code):
     return "☁️"
 
 # =========================
+# 2.1-2.3 patch: normalize high/low from timeline
+# =========================
+def normalize_high_low_from_timeline(day_obj: dict) -> None:
+    tl = day_obj.get("timeline")
+    if not tl:
+        return
+    highs = []
+    lows = []
+    for key in ("morning", "daytime", "night"):
+        s = tl.get(key) or {}
+        # "6℃" "最高6℃" どっちでも拾えるように数字だけ取る
+        import re
+        def p(x):
+          if not x: return None
+          m = re.search(r"-?\d+", str(x))
+          return int(m.group(0)) if m else None
+
+        h = p(s.get("temp_high")) or p(s.get("temp"))
+        l = p(s.get("temp_low")) or p(s.get("temp"))
+        if h is not None: highs.append(h)
+        if l is not None: lows.append(l)
+
+    if highs and lows:
+        day_obj.setdefault("weather_overview", {})
+        day_obj["weather_overview"]["high"] = f"最高{max(highs)}℃"
+        day_obj["weather_overview"]["low"]  = f"最低{min(lows)}℃"
+
+# =========================
 # JMA / AMeDAS
 # =========================
 def get_amedas_daily_stats(amedas_code: str):
@@ -836,6 +864,9 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
         slot_src["advice"] = {k: str(advice.get(k, "")).strip() for k in JOB_KEYS}
         tl[slot_name] = slot_src
     j["timeline"] = tl
+
+    # ★差し込み：timelineの温度から日次の最高/最低を正規化（main.dart側の表示安定化）
+    normalize_high_low_from_timeline(j)
 
     conf = j.get("confidence")
     j["confidence"] = int(conf) if isinstance(conf, (int, float)) else 0
