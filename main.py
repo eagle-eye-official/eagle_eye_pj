@@ -3,6 +3,13 @@
 # - 5 jobs only: taxi, delivery, restaurant, retail, hotel
 # - Writes assets/eagle_eye_data.json
 # - Robust: still generates output even if Gemini/Open-Meteo/JMA fails
+#
+# 2026-01 patch:
+# - Areas default to "major cities + Hakodate" to reduce tokens/cost (AREA_SET=all to restore)
+# - 2-stage AI: (1) Extract signals (events/traffic/alerts) -> (2) Judge/day report
+# - Venue list injected for better evidence
+# - rank_reasons / rank_drivers / evidence_level added
+# - Safety valve: low confidence => never S
 
 import os
 import json
@@ -29,6 +36,11 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "4"))  # keep modest for CI
 
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "assets", "eagle_eye_data.json")
 
+# Choose area set:
+# - "major" (default): major cities + Hakodate
+# - "all": include all areas in ALL_AREAS
+AREA_SET = os.environ.get("AREA_SET", "major").strip().lower()
+
 # Jobs fixed to 5 (MVP)
 JOB_KEYS = ["taxi", "delivery", "restaurant", "retail", "hotel"]
 
@@ -40,8 +52,10 @@ HOLIDAYS_2026 = {
     "2026-10-12", "2026-11-03", "2026-11-23", "2026-11-24"
 }
 
-# --- Areas (30) ---
-TARGET_AREAS = {
+# =========================
+# Areas
+# =========================
+ALL_AREAS = {
     "hakodate": { "name": "北海道 函館", "jma_code": "014100", "amedas_code": "23411", "lat": 41.7687, "lon": 140.7288, "feature": "観光・夜景・海鮮。冬は雪の影響大。クルーズ船寄港地。" },
     "sapporo": { "name": "北海道 札幌", "jma_code": "016000", "amedas_code": "14163", "lat": 43.0618, "lon": 141.3545, "feature": "北日本最大の歓楽街ススキノ。雪まつり等のイベント。" },
     "sendai": { "name": "宮城 仙台", "jma_code": "040000", "amedas_code": "34392", "lat": 38.2682, "lon": 140.8694, "feature": "東北のビジネス拠点。国分町の夜間需要。" },
@@ -75,6 +89,63 @@ TARGET_AREAS = {
     "okinawa_naha": { "name": "沖縄 那覇", "jma_code": "471000", "amedas_code": "91197", "lat": 26.2124, "lon": 127.6809, "feature": "国際通り。観光客メイン。台風等の天候影響大。" },
 }
 
+# Default: major cities + Hakodate (tokens-friendly)
+MAJOR_AREA_KEYS = [
+    "hakodate",
+    "sapporo",
+    "sendai",
+    # Tokyo: keep fewer hubs for cost control
+    "tokyo_shinjuku",
+    "tokyo_ginza",
+    "tokyo_shibuya",
+    "tokyo_asakusa",
+    "tokyo_haneda",
+    # Kanto leisure
+    "chiba_maihama",
+    "kanagawa_yokohama",
+    # Chukyo
+    "aichi_nagoya",
+    # Kansai (key hubs)
+    "osaka_kita",
+    "osaka_minami",
+    "kyoto_shijo",
+    "hyogo_kobe",
+    # Kyushu / Okinawa
+    "fukuoka",
+    "okinawa_naha",
+]
+
+if AREA_SET == "all":
+    TARGET_AREAS = dict(ALL_AREAS)
+else:
+    TARGET_AREAS = {k: ALL_AREAS[k] for k in MAJOR_AREA_KEYS if k in ALL_AREAS}
+
+# =========================
+# Venue list (Area -> important venues / flows)
+# =========================
+AREA_VENUES = {
+    "hakodate": [
+        "函館駅", "函館空港", "函館港(若松)", "金森赤レンガ倉庫", "五稜郭公園", "五稜郭タワー",
+        "湯の川温泉", "函館アリーナ", "函館山ロープウェイ", "大門横丁"
+    ],
+    "sapporo": ["札幌駅", "大通公園", "すすきの", "札幌ドーム", "北海きたえーる", "真駒内セキスイハイムアイスアリーナ"],
+    "sendai": ["仙台駅", "国分町", "楽天モバイルパーク宮城", "ゼビオアリーナ仙台", "仙台サンプラザホール"],
+    "tokyo_shinjuku": ["新宿駅", "歌舞伎町", "西新宿", "新宿御苑", "国立競技場(周辺アクセス)", "代々木公園(周辺アクセス)"],
+    "tokyo_ginza": ["銀座", "新橋駅", "汐留", "有楽町駅", "日比谷", "東京国際フォーラム(周辺アクセス)"],
+    "tokyo_shibuya": ["渋谷駅", "原宿", "表参道(周辺)", "代々木公園(周辺)", "明治神宮(周辺)"],
+    "tokyo_asakusa": ["浅草寺", "雷門", "上野(周辺)", "東京スカイツリー(周辺)"],
+    "tokyo_haneda": ["羽田空港", "品川(乗換)", "浜松町(モノレール)", "京急線", "空港リムジンバス"],
+    "chiba_maihama": ["東京ディズニーランド", "東京ディズニーシー", "舞浜駅", "イクスピアリ"],
+    "kanagawa_yokohama": ["横浜駅", "みなとみらい", "パシフィコ横浜", "Kアリーナ横浜", "横浜スタジアム", "中華街"],
+    "aichi_nagoya": ["名古屋駅", "栄", "バンテリンドーム ナゴヤ", "ポートメッセなごや", "IGアリーナ(予定/周辺アクセス)"],
+    "osaka_kita": ["大阪駅", "梅田", "グランフロント大阪", "大阪ステーションシティ", "梅田芸術劇場", "フェスティバルホール", "阪急うめだ本店"],
+    "osaka_minami": ["難波駅", "道頓堀", "心斎橋", "なんばHatch", "京セラドーム大阪(周辺アクセス)"],
+    "kyoto_shijo": ["四条河原町", "祇園", "清水寺(周辺アクセス)", "京都駅(玄関口)", "みやこめっせ", "ロームシアター京都"],
+    "hyogo_kobe": ["三宮", "神戸国際会館", "ワールド記念ホール", "神戸ポートターミナル", "ハーバーランド"],
+    "fukuoka": ["博多駅", "天神", "中洲", "福岡空港", "マリンメッセ福岡", "PayPayドーム", "福岡国際センター"],
+    "okinawa_naha": ["那覇空港", "国際通り", "おもろまち", "沖縄セルラースタジアム那覇", "港(泊)"],
+}
+
 # =========================
 # Utilities
 # =========================
@@ -95,9 +166,22 @@ def round10_percent(v):
         return "-"
 
 def extract_json_block(text: str) -> str:
-    # try extract first {...} block
     m = re.search(r"\{.*\}", text, re.DOTALL)
     return m.group(0) if m else text
+
+def clamp_rank(rank: str, max_rank: str) -> str:
+    # Higher is "S", then A, B, C
+    order = ["S", "A", "B", "C"]
+    try:
+        r_i = order.index(rank)
+    except Exception:
+        r_i = 3
+    try:
+        m_i = order.index(max_rank)
+    except Exception:
+        m_i = 3
+    # "max_rank" means "cannot be better than" -> choose worse (larger index) if too good
+    return rank if r_i >= m_i else max_rank
 
 def get_weather_emoji_jma(code):
     try:
@@ -156,17 +240,18 @@ def normalize_high_low_from_timeline(day_obj: dict) -> None:
     lows = []
     for key in ("morning", "daytime", "night"):
         s = tl.get(key) or {}
-        # "6℃" "最高6℃" どっちでも拾えるように数字だけ取る
-        import re
         def p(x):
-          if not x: return None
-          m = re.search(r"-?\d+", str(x))
-          return int(m.group(0)) if m else None
+            if not x:
+                return None
+            m = re.search(r"-?\d+", str(x))
+            return int(m.group(0)) if m else None
 
         h = p(s.get("temp_high")) or p(s.get("temp"))
         l = p(s.get("temp_low")) or p(s.get("temp"))
-        if h is not None: highs.append(h)
-        if l is not None: lows.append(l)
+        if h is not None:
+            highs.append(h)
+        if l is not None:
+            lows.append(l)
 
     if highs and lows:
         day_obj.setdefault("weather_overview", {})
@@ -336,7 +421,6 @@ def build_slot_weather(openmeteo_json, target_dt: datetime):
         if not ids:
             return {"weather":"☁️","temp":"-","temp_high":"-","temp_low":"-","humidity":"-","rain":"-","wcode":None}
 
-        # representative hour
         best_k = None
         best_diff = 10**9
         for gi in ids:
@@ -436,7 +520,7 @@ def call_gemini_search(prompt: str):
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "tools": [{"googleSearch": {}}],
-        "generationConfig": {"temperature": 0.4}
+        "generationConfig": {"temperature": 0.35}
     }
     data = _post_json(url, headers, payload, timeout=75, retry=3)
     if not data:
@@ -453,7 +537,7 @@ def call_gemini_json(prompt: str):
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"}
+        "generationConfig": {"temperature": 0.25, "responseMimeType": "application/json"}
     }
     data = _post_json(url, headers, payload, timeout=75, retry=3)
     if not data:
@@ -464,81 +548,219 @@ def call_gemini_json(prompt: str):
         return None
 
 # =========================
-# Event/Traffic (AI_DAYS)
+# 2-stage AI: stage1 (Extract signals) -> stage2 (Judge)
 # =========================
-def fetch_event_traffic_7days(area_name: str, days: int):
+def build_calendar_factors(target_dt: datetime):
+    date_str = target_dt.strftime("%Y-%m-%d")
+    weekday = target_dt.weekday()  # 0 Mon ... 6 Sun
+    is_weekend = weekday in (5, 6)
+    is_holiday = date_str in HOLIDAYS_2026
+    next_day = (target_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_day = (target_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    is_before_holiday = next_day in HOLIDAYS_2026
+    is_after_holiday = prev_day in HOLIDAYS_2026
+
+    # "long weekend" hint (very lightweight)
+    long_weekend_hint = ""
+    if is_holiday and (weekday == 0 or weekday == 4):  # Mon/Fri holiday
+        long_weekend_hint = "連休要素あり"
+    if is_before_holiday and weekday in (4,):  # Fri before holiday
+        long_weekend_hint = "連休前夜の可能性"
+    if is_after_holiday and weekday in (0,):  # Mon after holiday
+        long_weekend_hint = "連休明けの可能性"
+
+    return {
+        "date": date_str,
+        "weekday_ja": _weekday_ja(target_dt),
+        "is_weekend": is_weekend,
+        "is_holiday": is_holiday,
+        "is_before_holiday": is_before_holiday,
+        "is_after_holiday": is_after_holiday,
+        "long_weekend_hint": long_weekend_hint
+    }
+
+def fetch_signals_7days(area_key: str, area_name: str, days: int):
     """
-    Returns dict[YYYY-MM-DD] = "bullets text"
-    If unavailable -> all empty
+    Stage1:
+      - Gemini search and extract structured signals per day
+    Returns dict[YYYY-MM-DD] = {
+        "events":[{...}],
+        "traffic":[{...}],
+        "alerts":[{...}],
+        "overall_note":"",
+        "evidence_level":"high/med/low"
+      }
     """
     today = datetime.now(JST).date()
     date_keys = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
 
+    empty = {
+        d: {
+            "events": [],
+            "traffic": [],
+            "alerts": [],
+            "overall_note": "",
+            "evidence_level": "low",
+            "sources_note": ""
+        } for d in date_keys
+    }
     if not API_KEY:
-        return {d: "" for d in date_keys}
+        return empty
 
+    venues = AREA_VENUES.get(area_key, [])
+    venues_text = " / ".join(venues[:10]) if venues else "(指定なし)"
+
+    # Stage1-a: Search summary text (with venues guidance)
     search_prompt = (
         "あなたはプロの調査員です。\n"
         f"対象エリア: {area_name}\n"
+        f"重要地点（参考）: {venues_text}\n"
         f"期間: {date_keys[0]} から {date_keys[-1]}（{days}日）\n\n"
-        "次の情報を、日付ごとに整理して検索してまとめてください。\n"
+        "次の情報を、日付ごとに検索して要約してください。\n"
         "優先順位:\n"
         "1) 交通: 鉄道/バス/航空の遅延・運休、道路の通行止め、規制、渋滞、事故\n"
         "2) イベント: ライブ/スポーツ/展示会/祭り等（中止/変更も）\n"
         "3) 注意情報: 大雪/強風/警報級など交通に影響しうる情報\n\n"
-        "出力は「日付見出し + 箇条書き」形式で、必ず全日分を作ること。\n"
-        "日付が分からない情報は「不明」にまとめること。\n"
-        "フェイクは書かない。曖昧なら「未確認」と明記。\n"
+        "【必須ルール】\n"
+        "- フェイク禁止。曖昧なら「未確認」と書く。\n"
+        "- 可能なら会場名/駅名/時間帯/規模（満員/完売/動員など）も書く。\n"
+        "- 出力は「日付見出し + 箇条書き」。必ず全日分を作る。\n"
     )
     text = call_gemini_search(search_prompt)
     if not text:
-        return {d: "" for d in date_keys}
+        return empty
+
+    # Stage1-b: Convert to structured JSON
+    schema = {
+        d: {
+            "events": [
+                {
+                    "name": "",
+                    "venue": "",
+                    "time": "",
+                    "scale": "",
+                    "status": "",
+                    "notes": "",
+                    "source": "",
+                    "confidence": "high/med/low"
+                }
+            ],
+            "traffic": [
+                {
+                    "type": "rail/road/air/other",
+                    "summary": "",
+                    "time": "",
+                    "impact": "increase/decrease/unknown",
+                    "source": "",
+                    "confidence": "high/med/low"
+                }
+            ],
+            "alerts": [
+                {
+                    "type": "weather/other",
+                    "summary": "",
+                    "time": "",
+                    "source": "",
+                    "confidence": "high/med/low"
+                }
+            ],
+            "overall_note": "",
+            "evidence_level": "high/med/low",
+            "sources_note": ""
+        } for d in date_keys
+    }
 
     json_prompt = (
         "次の文章を解析して、期間内の日数分を必ず埋めたJSONに変換してください。\n"
-        "キーは日付(YYYY-MM-DD)、値はその日のEvent/Traffic要約（箇条書き文字列、改行OK）。\n"
-        f"期間: {date_keys[0]} から {date_keys[-1]}\n"
+        "キーは日付(YYYY-MM-DD)、値は構造化された signals です。\n"
+        "【重要】情報が薄い日は evidence_level を low にし、各配列は空でOK。\n"
+        "【制約】events/traffic/alerts はそれぞれ最大3件まで。\n"
+        "【source】は可能なら公式/運営/報道/鉄道会社/道路管理者などを短く。\n"
+        f"対象エリア: {area_name}\n"
+        f"期間: {date_keys[0]} から {date_keys[-1]}\n\n"
         "文章:\n"
         + text
         + "\n\n"
         "出力はこのJSONのみ:\n"
-        + "{\n"
-        + ",\n".join([f'  "{d}": "..."' for d in date_keys])
-        + "\n}\n"
+        + json.dumps(schema, ensure_ascii=False, indent=2)
     )
+
     jtxt = call_gemini_json(json_prompt)
     if not jtxt:
-        return {d: "" for d in date_keys}
+        return empty
 
     try:
         j = json.loads(extract_json_block(jtxt))
-        out = {}
-        for d in date_keys:
-            out[d] = (j.get(d) or "").strip()
-        return out
     except Exception:
-        return {d: "" for d in date_keys}
+        return empty
 
-def to_facts_list(event_traffic_text: str, max_items=6):
-    if not event_traffic_text:
+    out = {}
+    for d in date_keys:
+        obj = j.get(d) if isinstance(j, dict) else None
+        if not isinstance(obj, dict):
+            out[d] = empty[d]
+            continue
+
+        def _cap_list(v):
+            return v if isinstance(v, list) else []
+
+        events = _cap_list(obj.get("events"))[:3]
+        traffic = _cap_list(obj.get("traffic"))[:3]
+        alerts = _cap_list(obj.get("alerts"))[:3]
+
+        out[d] = {
+            "events": events,
+            "traffic": traffic,
+            "alerts": alerts,
+            "overall_note": str(obj.get("overall_note") or "").strip(),
+            "evidence_level": str(obj.get("evidence_level") or "low").strip().lower(),
+            "sources_note": str(obj.get("sources_note") or "").strip()
+        }
+
+        if out[d]["evidence_level"] not in ("high", "med", "low"):
+            out[d]["evidence_level"] = "low"
+
+    return out
+
+def signals_to_facts(signals_for_day: dict, max_items=6):
+    """
+    Convert structured signals to simple bullets for UI list.
+    """
+    if not isinstance(signals_for_day, dict):
         return []
-    lines = []
-    for raw in event_traffic_text.splitlines():
-        s = raw.strip()
-        if not s:
-            continue
-        s = re.sub(r"^[\-\•\*・\u2022]+\s*", "", s)
-        if not s:
-            continue
-        if s.startswith(("202", "203")):
-            continue
-        if s == "特段の検索結果なし":
-            continue
-        lines.append(s)
+    facts = []
 
+    for e in (signals_for_day.get("events") or [])[:3]:
+        if isinstance(e, dict):
+            name = str(e.get("name") or "").strip()
+            venue = str(e.get("venue") or "").strip()
+            t = str(e.get("time") or "").strip()
+            status = str(e.get("status") or "").strip()
+            s = " / ".join([x for x in [name, venue, t, status] if x])
+            if s:
+                facts.append(f"イベント: {s}")
+
+    for tr in (signals_for_day.get("traffic") or [])[:3]:
+        if isinstance(tr, dict):
+            typ = str(tr.get("type") or "").strip()
+            summ = str(tr.get("summary") or "").strip()
+            t = str(tr.get("time") or "").strip()
+            s = " / ".join([x for x in [typ, summ, t] if x])
+            if s:
+                facts.append(f"交通: {s}")
+
+    for a in (signals_for_day.get("alerts") or [])[:2]:
+        if isinstance(a, dict):
+            summ = str(a.get("summary") or "").strip()
+            t = str(a.get("time") or "").strip()
+            s = " / ".join([x for x in [summ, t] if x])
+            if s:
+                facts.append(f"注意: {s}")
+
+    # uniq
     uniq = []
     seen = set()
-    for s in lines:
+    for s in facts:
         if s in seen:
             continue
         seen.add(s)
@@ -598,19 +820,13 @@ def decide_rain_am_pm(slot_weather, jma_fallback="-"):
     return jma_fallback, jma_fallback, jma_fallback
 
 # =========================
-# Rank (simple)
+# Rank (fallback only)
 # =========================
 def base_rank_for_date(target_dt: datetime):
+    # Fallback only. Do NOT rely on weekday for AI rank.
     date_str = target_dt.strftime("%Y-%m-%d")
-    # default C
     rank = "C"
-    # Fri/Sat -> B (soft)
-    if target_dt.weekday() in (4, 5):
-        rank = "B"
     if date_str in HOLIDAYS_2026:
-        rank = "B"
-    next_day = (target_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-    if next_day in HOLIDAYS_2026:
         rank = "B"
     return rank
 
@@ -618,7 +834,6 @@ def base_rank_for_date(target_dt: datetime):
 # Long-term fallback (safe)
 # =========================
 def get_long_term_text_safe(area_name: str):
-    # Keep short & stable. If Gemini available, enrich.
     base = (
         f"エリア: {area_name}\n"
         "向こう数ヶ月は季節の変わり目で天候が変動しやすい時期です。\n"
@@ -636,11 +851,10 @@ def get_long_term_text_safe(area_name: str):
     res = call_gemini_search(prompt)
     return res.strip() if res else base
 
-def build_long_term_day(target_dt: datetime, long_term_text: str):
+def build_long_term_day(area_key: str, area_name: str, target_dt: datetime, long_term_text: str):
     full_date = _date_label(target_dt)
     rank = base_rank_for_date(target_dt)
 
-    # Minimal structure that main.dart expects
     wo = {
         "condition": "☁️",
         "high": "-",
@@ -653,9 +867,14 @@ def build_long_term_day(target_dt: datetime, long_term_text: str):
     }
 
     return {
+        "area_key": area_key,
+        "area_name": area_name,
         "date": full_date,
         "is_long_term": True,
         "rank": rank,
+        "rank_reasons": [],
+        "rank_drivers": {"positive": [], "negative": []},
+        "evidence_level": "low",
         "weather_overview": wo,
         "event_traffic_facts": [],
         "peak_windows": {k: "" for k in JOB_KEYS},
@@ -666,12 +885,44 @@ def build_long_term_day(target_dt: datetime, long_term_text: str):
     }
 
 # =========================
-# AI day generation (optional)
+# AI day generation: Stage2 (Judge)
 # =========================
-def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: str, slot_weather, event_traffic_text: str):
+def apply_rank_safety(day_obj: dict) -> None:
     """
-    Returns dict aligned with main.dart model.
-    If Gemini unavailable/fails -> returns None (caller will fallback).
+    Safety valve:
+      - If evidence_level low or confidence < 70 => never rank S
+      - If confidence < 50 => cap to B
+    """
+    if not isinstance(day_obj, dict):
+        return
+    rank = str(day_obj.get("rank") or "C").strip().upper()
+    conf = day_obj.get("confidence")
+    try:
+        conf_v = int(conf)
+    except Exception:
+        conf_v = 0
+    ev = str(day_obj.get("evidence_level") or "low").strip().lower()
+
+    if conf_v < 50:
+        # too uncertain: cannot be S/A
+        rank = clamp_rank(rank, "B")
+    elif conf_v < 70 or ev in ("low", "unknown", ""):
+        # moderate uncertainty: no S
+        rank = clamp_rank(rank, "A")
+
+    day_obj["rank"] = rank
+    day_obj["confidence"] = max(0, min(100, conf_v))
+    if ev not in ("high", "med", "low"):
+        day_obj["evidence_level"] = "low"
+
+def generate_ai_day(area_key: str, area_data, target_dt: datetime, jma_day_data, warning_text: str, slot_weather, signals_for_day: dict):
+    """
+    Stage2:
+      Build evidence and ask Gemini to judge:
+        - rank (S/A/B/C)
+        - rank_reasons, rank_drivers, evidence_level, confidence
+        - plus existing fields expected by main.dart
+    If Gemini unavailable/fails -> returns None.
     """
     if not API_KEY:
         return None
@@ -698,38 +949,53 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
     rain_am, rain_pm, rain_ng = decide_rain_am_pm(slot_weather, jma_fallback=jma_rain_fallback)
     rain_display = f"午前{rain_am} / 午後{rain_pm}"
 
-    facts_list = to_facts_list(event_traffic_text, max_items=6)
-    facts_text_for_ai = "\n".join([f"- {x}" for x in facts_list]) if facts_list else "(特段の情報なし)"
+    venues = AREA_VENUES.get(area_key, [])
+    cal = build_calendar_factors(target_dt)
 
-    # Build facts block (safe; no braces complexity)
-    facts_block = "\n".join([
-        "[Area]",
-        area_data["name"],
-        f"特徴: {area_data.get('feature','')}",
-        "",
-        "[Date]",
-        f"{date_str} / {full_date}",
-        "",
-        "[Weather Overview]",
-        f"天気: {w_emoji} (JMA code {w_code})",
-        f"最高: {high}℃ / 最低: {low}℃",
-        f"降水（Open-Meteo/10%丸め）: 午前{rain_am} / 午後{rain_pm} / 夜{rain_ng}",
-        f"警報注意報: {warning_text}",
-        "",
-        "[Time Slots Weather]（Open-Meteo/10%丸め）",
-        f"朝(06-12): {slot_weather['morning']['weather']} / 気温 {slot_weather['morning']['temp']}（高{slot_weather['morning']['temp_high']} 低{slot_weather['morning']['temp_low']}）/ 湿度 {slot_weather['morning']['humidity']} / 降水 {slot_weather['morning']['rain']}",
-        f"昼(12-18): {slot_weather['daytime']['weather']} / 気温 {slot_weather['daytime']['temp']}（高{slot_weather['daytime']['temp_high']} 低{slot_weather['daytime']['temp_low']}）/ 湿度 {slot_weather['daytime']['humidity']} / 降水 {slot_weather['daytime']['rain']}",
-        f"夜(18-24): {slot_weather['night']['weather']} / 気温 {slot_weather['night']['temp']}（高{slot_weather['night']['temp_high']} 低{slot_weather['night']['temp_low']}）/ 湿度 {slot_weather['night']['humidity']} / 降水 {slot_weather['night']['rain']}",
-        "",
-        "[Event & Traffic Facts]",
-        facts_text_for_ai
-    ])
+    # Evidence object (structured; keeps tokens reasonable)
+    evidence = {
+        "area": {
+            "key": area_key,
+            "name": area_data["name"],
+            "feature": area_data.get("feature", ""),
+            "venues_hint": venues[:10]
+        },
+        "date": {
+            "date": date_str,
+            "label": full_date,
+            "calendar": cal
+        },
+        "weather": {
+            "jma_code": w_code,
+            "condition": w_emoji,
+            "high": f"{high}",
+            "low": f"{low}",
+            "warning": warning_text,
+            "rain": {
+                "am": rain_am,
+                "pm": rain_pm,
+                "night": rain_ng,
+                "display": rain_display
+            },
+            "slots": slot_weather
+        },
+        "signals": signals_for_day if isinstance(signals_for_day, dict) else {
+            "events": [], "traffic": [], "alerts": [],
+            "overall_note": "", "evidence_level": "low", "sources_note": ""
+        }
+    }
 
-    # Prepare a schema hint without f-string braces troubles
+    # Schema hint for stage2 output
     schema_hint = {
+        "area_key": area_key,
+        "area_name": area_data["name"],
         "date": full_date,
         "is_long_term": False,
         "rank": "S/A/B/C",
+        "rank_reasons": ["(max 5) なぜそのランクか（具体的）"],
+        "rank_drivers": {"positive": ["..."], "negative": ["..."]},
+        "evidence_level": "high/med/low",
+        "confidence": 0,
         "weather_overview": {
             "condition": w_emoji,
             "high": f"最高{high}℃",
@@ -772,35 +1038,26 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
                 "rain": slot_weather["night"]["rain"],
                 "advice": {k: "" for k in JOB_KEYS}
             }
-        },
-        "confidence": 0
+        }
     }
 
     prompt = (
         "あなたは世界トップクラスの戦略コンサルタントです。\n"
-        "以下の事実セットから、5つの職業（taxi/delivery/restaurant/retail/hotel）向けに、\n"
-        "「その職業の意思決定が変わる」具体的な提案を作ってください。\n\n"
-        "【ルール】\n"
-        "- フェイク禁止。事実セットにない固有名詞を勝手に作らない。\n"
-        "- 曖昧なら「未確認」と明記。\n"
-        "- 断定の命令口調は禁止。\n"
-        "- 一般論だけは禁止。必ず事実セット（天候/交通/イベント）に結びつける。\n"
+        "次の evidence(JSON) に基づき、その日の混雑予測ランクと根拠、職業別提案を作ってください。\n\n"
+        "【重要ルール】\n"
+        "- フェイク禁止。evidenceにない固有名詞を作らない（会場名/イベント名を捏造しない）。\n"
+        "- 曖昧なら未確認とし、confidence/evidence_level を下げる。\n"
+        "- 曜日だけでランクを決めない（曜日は参考に留める）。\n"
+        "- rank_reasons は「誰が見てもそうだよね」と言える具体根拠（最大5）。\n"
+        "- rank_drivers は増える要因/減る要因の両方を短文で。\n"
+        "- event_traffic_facts は最大6件、短い箇条書き。\n"
         "- peak_windows / timeline.*.advice / job_actions は必ず全職業キーを埋める。\n"
-        "- job_actions は「職業別の打ち手（要点）」として各職業1行で高密度（区切りは「｜」推奨）。\n\n"
+        "- job_actions は各職業1行で高密度（区切りは「｜」推奨）。\n\n"
         "【出力はJSONのみ】\n"
-        "次のスキーマを満たすこと（キー追加は可。ただし最低限これを満たす）。\n\n"
+        "次のスキーマを最低限満たすこと（キー追加は可）。\n\n"
         + json.dumps(schema_hint, ensure_ascii=False, indent=2)
-        + "\n\n【レポート本文（daily_schedule_and_impact）に含めるべき構成】\n"
-        "- ■Event & Traffic（事実セットの範囲で段落分けして要約）\n"
-        "- ■総括（その日全体の読み：短め）\n"
-        "- ■職業別の打ち手（要点）\n"
-        "  ・タクシー: ...\n"
-        "  ・デリバリー: ...\n"
-        "  ・飲食店: ...\n"
-        "  ・小売: ...\n"
-        "  ・ホテル: ...\n\n"
-        "【事実セット】\n"
-        + facts_block
+        + "\n\n【evidence】\n"
+        + json.dumps(evidence, ensure_ascii=False)
     )
 
     res = call_gemini_json(prompt)
@@ -813,10 +1070,44 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
         return None
 
     # ---- sanitize & ensure schema for main.dart ----
+    j.setdefault("area_key", area_key)
+    j.setdefault("area_name", area_data["name"])
     j.setdefault("date", full_date)
     j.setdefault("is_long_term", False)
-    j.setdefault("rank", base_rank_for_date(target_dt))
 
+    # rank + reasons
+    j["rank"] = str(j.get("rank") or "C").strip().upper()
+    rr = j.get("rank_reasons")
+    if not isinstance(rr, list):
+        rr = []
+    j["rank_reasons"] = [str(x).strip() for x in rr if str(x).strip()][:5]
+
+    rd = j.get("rank_drivers")
+    if not isinstance(rd, dict):
+        rd = {"positive": [], "negative": []}
+    pos = rd.get("positive")
+    neg = rd.get("negative")
+    if not isinstance(pos, list):
+        pos = []
+    if not isinstance(neg, list):
+        neg = []
+    j["rank_drivers"] = {
+        "positive": [str(x).strip() for x in pos if str(x).strip()][:5],
+        "negative": [str(x).strip() for x in neg if str(x).strip()][:5]
+    }
+
+    evl = str(j.get("evidence_level") or (signals_for_day.get("evidence_level") if isinstance(signals_for_day, dict) else "low")).strip().lower()
+    if evl not in ("high", "med", "low"):
+        evl = "low"
+    j["evidence_level"] = evl
+
+    conf = j.get("confidence")
+    try:
+        j["confidence"] = int(conf)
+    except Exception:
+        j["confidence"] = 0
+
+    # weather_overview
     wo = j.get("weather_overview") or {}
     wo.setdefault("condition", w_emoji)
     wo.setdefault("high", f"最高{high}℃")
@@ -828,23 +1119,34 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
     wo.setdefault("warning", warning_text)
     j["weather_overview"] = wo
 
+    # event_traffic_facts
+    facts_fallback = signals_to_facts(signals_for_day, max_items=6)
     et = j.get("event_traffic_facts")
     if not isinstance(et, list):
-        et = facts_list
-    j["event_traffic_facts"] = [str(x).strip() for x in et if str(x).strip()][:6]
+        et = facts_fallback
+    et_clean = [str(x).strip() for x in et if str(x).strip()]
+    if not et_clean:
+        et_clean = facts_fallback
+    j["event_traffic_facts"] = et_clean[:6]
 
+    # peak_windows / job_actions
     pw = j.get("peak_windows") or {}
+    if not isinstance(pw, dict):
+        pw = {}
     for k in JOB_KEYS:
         pw.setdefault(k, "")
     j["peak_windows"] = {k: str(pw.get(k, "")).strip() for k in JOB_KEYS}
 
     ja = j.get("job_actions") or {}
+    if not isinstance(ja, dict):
+        ja = {}
     for k in JOB_KEYS:
         ja.setdefault(k, "")
     j["job_actions"] = {k: str(ja.get(k, "")).strip() for k in JOB_KEYS}
 
     j.setdefault("daily_schedule_and_impact", "")
 
+    # timeline: ensure slots & advice
     tl = j.get("timeline")
     if not isinstance(tl, dict):
         tl = {}
@@ -865,11 +1167,23 @@ def generate_ai_day(area_data, target_dt: datetime, jma_day_data, warning_text: 
         tl[slot_name] = slot_src
     j["timeline"] = tl
 
-    # ★差し込み：timelineの温度から日次の最高/最低を正規化（main.dart側の表示安定化）
+    # normalize hi/lo for display stability
     normalize_high_low_from_timeline(j)
 
-    conf = j.get("confidence")
-    j["confidence"] = int(conf) if isinstance(conf, (int, float)) else 0
+    # Safety valve: low confidence => no S
+    apply_rank_safety(j)
+
+    # If reasons empty, create minimal reasons from evidence (no fabrication)
+    if not j["rank_reasons"]:
+        auto = []
+        if facts_fallback:
+            auto.append(f"観測材料: {facts_fallback[0]}")
+        # weather: use slot rain and warning
+        if warning_text and warning_text != "特になし":
+            auto.append(f"警報注意報: {warning_text}")
+        if rain_am != "-" or rain_pm != "-" or rain_ng != "-":
+            auto.append(f"降水見込み: 午前{rain_am}/午後{rain_pm}/夜{rain_ng}")
+        j["rank_reasons"] = auto[:5]
 
     return j
 
@@ -882,7 +1196,10 @@ def process_single_area(item):
 
     daily_db, warning_text = get_jma_forecast_data(area_data["jma_code"])
     om = fetch_openmeteo_hourly(area_data["lat"], area_data["lon"], days=AI_DAYS)
-    facts_by_date = fetch_event_traffic_7days(area_data["name"], AI_DAYS)
+
+    # Stage1: signals for first AI_DAYS only (cost control)
+    signals_by_date = fetch_signals_7days(area_key, area_data["name"], AI_DAYS)
+
     long_term_text = get_long_term_text_safe(area_data["name"])
 
     area_forecasts = []
@@ -895,25 +1212,26 @@ def process_single_area(item):
         if i < AI_DAYS:
             day_data = daily_db.get(date_key, {})
             slot_weather = build_slot_weather(om, target_dt)
-            et_text = (facts_by_date.get(date_key) or "").strip()
+            signals_for_day = signals_by_date.get(date_key) if isinstance(signals_by_date, dict) else None
 
             print(f"🤖 {area_data['name']} / {date_key} ", end="", flush=True)
             ai = generate_ai_day(
+                area_key=area_key,
                 area_data=area_data,
                 target_dt=target_dt,
                 jma_day_data=day_data,
                 warning_text=warning_text,
                 slot_weather=slot_weather,
-                event_traffic_text=et_text
+                signals_for_day=(signals_for_day or {})
             )
             if ai:
                 print("OK", flush=True)
                 area_forecasts.append(ai)
             else:
                 print("NG → fallback", flush=True)
-                area_forecasts.append(build_long_term_day(target_dt, long_term_text))
+                area_forecasts.append(build_long_term_day(area_key, area_data["name"], target_dt, long_term_text))
         else:
-            area_forecasts.append(build_long_term_day(target_dt, long_term_text))
+            area_forecasts.append(build_long_term_day(area_key, area_data["name"], target_dt, long_term_text))
 
     print(f"✅ {area_data['name']} 完了", flush=True)
     return area_key, area_forecasts
@@ -923,7 +1241,7 @@ def process_single_area(item):
 # =========================
 def main():
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye (assets writer) 起動: {today.strftime('%Y/%m/%d %H:%M')}", flush=True)
+    print(f"🦅 Eagle Eye (assets writer) 起動: {today.strftime('%Y/%m/%d %H:%M')} / AREA_SET={AREA_SET} / areas={len(TARGET_AREAS)}", flush=True)
 
     out_dir = os.path.dirname(OUTPUT_PATH)
     os.makedirs(out_dir, exist_ok=True)
