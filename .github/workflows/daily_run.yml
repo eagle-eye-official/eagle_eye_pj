@@ -1,9 +1,8 @@
-# .github/workflows/daily_run.yml
 name: Eagle Eye Daily Forecast
 
 on:
   schedule:
-    # 日本時間 朝5:05 (UTC 20:05) に定期実行
+    # 日本時間 朝5:05 (UTC 20:05)
     - cron: '5 20 * * *'
   workflow_dispatch:
 
@@ -13,12 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,11 +37,8 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-          # ★Flutterが読むのは assets/eagle_eye_data.json
+          # ★重要：更新されるのは assets 配下
           git add assets/eagle_eye_data.json
 
-          # 変更が無ければ終了（エラー扱いにしない）
-          git diff --cached --quiet && echo "No changes" && exit 0
-
-          git commit -m "Update forecast data"
-          git push
+          # 差分があればコミットしてpush
+          git diff --staged --quiet || (git commit -m "Update forecast data" && git push)
