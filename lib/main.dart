@@ -7,24 +7,25 @@ void main() {
 }
 
 /// ===========================
-/// App
+/// Theme constants
 /// ===========================
+const kNavyBg = Color(0xFF0B1220);
+const kSurface = Color(0xFF101A2E);
+const kCardBg = Color(0x1AFFFFFF); // 10% white
+const kCardBorder = Color(0x22FFFFFF);
+const kAccentOrange = Color(0xFFFFB020);
+
 class EagleEyeApp extends StatelessWidget {
   const EagleEyeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Navy-first, Material3 dark theme
-    const navyBg = Color(0xFF0B1220);
-    const cardBg = Color(0x1AFFFFFF); // 10% white
-    const cardBorder = Color(0x22FFFFFF);
-
     final scheme = ColorScheme.fromSeed(
       seedColor: Colors.blue,
       brightness: Brightness.dark,
     ).copyWith(
-      background: navyBg,
-      surface: const Color(0xFF101A2E),
+      background: kNavyBg,
+      surface: kSurface,
     );
 
     return MaterialApp(
@@ -33,25 +34,31 @@ class EagleEyeApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: scheme,
-        scaffoldBackgroundColor: navyBg,
-        cardColor: cardBg,
+        scaffoldBackgroundColor: kNavyBg,
         dividerColor: Colors.white.withOpacity(0.12),
         textTheme: const TextTheme(
-          titleLarge: TextStyle(fontWeight: FontWeight.w800),
-          titleMedium: TextStyle(fontWeight: FontWeight.w800),
-          titleSmall: TextStyle(fontWeight: FontWeight.w800),
+          titleLarge: TextStyle(fontWeight: FontWeight.w900),
+          titleMedium: TextStyle(fontWeight: FontWeight.w900),
+          titleSmall: TextStyle(fontWeight: FontWeight.w900),
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
+        appBarTheme: AppBarTheme(
+          backgroundColor: kNavyBg.withOpacity(0.92),
           elevation: 0,
           centerTitle: false,
+          surfaceTintColor: Colors.transparent,
         ),
         cardTheme: CardTheme(
-          color: cardBg,
+          color: kCardBg,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: cardBorder, width: 1),
+            side: const BorderSide(color: kCardBorder, width: 1),
+          ),
+        ),
+        dropdownMenuTheme: DropdownMenuThemeData(
+          textStyle: const TextStyle(color: Colors.white),
+          menuStyle: MenuStyle(
+            backgroundColor: WidgetStateProperty.all(kSurface),
           ),
         ),
       ),
@@ -64,7 +71,7 @@ class EagleEyeApp extends StatelessWidget {
 /// Home
 /// - Today/Tomorrow/DayAfter: PageView (swipe)
 /// - Later days: Calendar screen
-/// - Job selector: Bottom (B)
+/// - Region/Job are fixed after initial setup. Change via Settings only.
 /// ===========================
 class EagleEyeHome extends StatefulWidget {
   const EagleEyeHome({super.key});
@@ -75,10 +82,13 @@ class EagleEyeHome extends StatefulWidget {
 
 class _EagleEyeHomeState extends State<EagleEyeHome> {
   late Future<EagleEyeData> _future;
+
+  // Fixed settings (chosen on first launch of this session)
   String? _selectedAreaKey;
+  String _selectedJobKey = JobKeys.taxi;
+  bool _setupDone = false;
 
-  String _selectedJobKey = JobKeys.taxi; // default
-
+  // Paging
   final PageController _pageController = PageController(initialPage: 0);
   int _pageIndex = 0;
 
@@ -92,6 +102,73 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  DateTime _baseTodayLocal() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  Future<void> _ensureSetup(EagleEyeData data) async {
+    if (_setupDone) return;
+
+    // Default candidates (but force user to confirm once)
+    final orderedKeys = data.areaKeysNorthToSouth();
+    final initialArea = _selectedAreaKey ?? (orderedKeys.isNotEmpty ? orderedKeys.first : null);
+    final initialJob = _selectedJobKey;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final res = await Navigator.of(context).push<SettingsResult?>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => SettingsScreen(
+            title: '初期設定',
+            areaItems: orderedKeys.map((k) => AreaItem(key: k, label: data.areaLabel(k))).toList(),
+            initialAreaKey: initialArea,
+            initialJobKey: initialJob,
+            mustChoose: true,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAreaKey = res?.areaKey ?? initialArea;
+        _selectedJobKey = res?.jobKey ?? initialJob;
+        _setupDone = true;
+        _pageIndex = 0;
+        _pageController.jumpToPage(0);
+      });
+    });
+  }
+
+  Future<void> _openSettings(EagleEyeData data) async {
+    final orderedKeys = data.areaKeysNorthToSouth();
+    final res = await Navigator.of(context).push<SettingsResult?>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SettingsScreen(
+          title: '設定',
+          areaItems: orderedKeys.map((k) => AreaItem(key: k, label: data.areaLabel(k))).toList(),
+          initialAreaKey: _selectedAreaKey ?? (orderedKeys.isNotEmpty ? orderedKeys.first : null),
+          initialJobKey: _selectedJobKey,
+          mustChoose: false,
+        ),
+      ),
+    );
+
+    if (res == null) return;
+    setState(() {
+      final areaChanged = res.areaKey != _selectedAreaKey;
+      _selectedAreaKey = res.areaKey;
+      _selectedJobKey = res.jobKey;
+      if (areaChanged) {
+        _pageIndex = 0;
+        _pageController.jumpToPage(0);
+      }
+    });
   }
 
   void _openCalendar(BuildContext context, List<DayForecast> forecasts, String areaLabel) async {
@@ -113,15 +190,11 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
     );
 
     if (picked == null) return;
-
     final idx = picked.difference(base).inDays;
     if (idx >= 0 && idx < forecasts.length) {
-      // if within 0..2, jump page; else stay (calendar used for later)
       if (idx <= 2) {
         _pageController.jumpToPage(idx);
         setState(() => _pageIndex = idx);
-      } else {
-        // optional: show a dialog/preview for later day - already handled inside CalendarScreen
       }
     }
   }
@@ -155,131 +228,265 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
         }
 
         final data = snapshot.data!;
-        final areaKeys = data.areaKeys;
-
-        // UI側はハードコードしない：JSONから動的生成
-        _selectedAreaKey ??= areaKeys.isNotEmpty ? areaKeys.first : null;
+        _ensureSetup(data);
 
         final selectedKey = _selectedAreaKey;
         final forecasts = selectedKey == null ? <DayForecast>[] : (data.byArea[selectedKey] ?? <DayForecast>[]);
-
         final areaLabel = selectedKey == null ? '' : data.areaLabel(selectedKey);
 
+        // AppBar: avoid overlap by keeping title minimal + ellipsis for area label
         return Scaffold(
           appBar: AppBar(
             title: Row(
               children: [
                 const Text('Eagle Eye'),
-                const SizedBox(width: 10),
-                if (areaLabel.isNotEmpty)
-                  Text(
-                    areaLabel,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withOpacity(0.78),
+                if (areaLabel.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      areaLabel,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white.withOpacity(0.75),
+                      ),
                     ),
                   ),
+                ],
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: '設定',
+                onPressed: () => _openSettings(data),
+                icon: const Icon(Icons.settings),
+              ),
               if (forecasts.isNotEmpty)
                 IconButton(
                   tooltip: 'カレンダー',
                   onPressed: () => _openCalendar(context, forecasts, areaLabel),
                   icon: const Icon(Icons.calendar_month),
                 ),
-              if (areaKeys.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedKey,
-                      dropdownColor: const Color(0xFF101A2E),
-                      items: areaKeys
-                          .map(
-                            (k) => DropdownMenuItem<String>(
-                              value: k,
-                              child: Text(data.areaLabel(k)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedAreaKey = v;
-                          _pageIndex = 0;
-                          _pageController.jumpToPage(0);
-                        });
-                      },
-                    ),
-                  ),
-                ),
+              const SizedBox(width: 6),
             ],
           ),
           body: forecasts.isEmpty
               ? const Center(child: Text('データがありません'))
-              : Column(
-                  children: [
-                    // Swipable pages for first 3 days
-                    Expanded(
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: _min(3, forecasts.length),
-                        onPageChanged: (i) => setState(() => _pageIndex = i),
-                        itemBuilder: (context, i) {
-                          final label = (i == 0) ? '今日' : (i == 1) ? '明日' : '明後日';
-                          return SingleChildScrollView(
-                            // ★ bottom job bar + safe area 分の余白を増やす
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 92),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _TopPills(
-                                  left: label,
-                                  right: forecasts[i].date,
-                                ),
-                                const SizedBox(height: 10),
-                                DayCard(
-                                  day: forecasts[i],
-                                  selectedJobKey: _selectedJobKey,
-                                ),
-                                const SizedBox(height: 16),
-                                const _HintRow(
-                                  icon: Icons.swipe,
-                                  text: '左右にスワイプで 今日〜明後日',
-                                ),
-                                const SizedBox(height: 8),
-                                const _HintRow(
-                                  icon: Icons.calendar_month,
-                                  text: '4日目以降はカレンダーから',
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+              : PageView.builder(
+                  controller: _pageController,
+                  itemCount: _min(3, forecasts.length),
+                  onPageChanged: (i) => setState(() => _pageIndex = i),
+                  itemBuilder: (context, i) {
+                    final label = (i == 0) ? '今日' : (i == 1) ? '明日' : '明後日';
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _TopPills(left: label, right: forecasts[i].date),
+                          const SizedBox(height: 10),
+                          DayCard(
+                            day: forecasts[i],
+                            selectedJobKey: _selectedJobKey,
+                          ),
+                          const SizedBox(height: 14),
+                          _HintRow(icon: Icons.swipe, text: '左右にスワイプで 今日〜明後日'),
+                          const SizedBox(height: 6),
+                          _HintRow(icon: Icons.calendar_month, text: '4日目以降はカレンダーから'),
+                        ],
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-          // Bottom job selector (B)
-          bottomNavigationBar: JobSelectorBar(
-            selectedJobKey: _selectedJobKey,
-            onChanged: (k) => setState(() => _selectedJobKey = k),
-          ),
         );
       },
     );
   }
 
   static int _min(int a, int b) => a < b ? a : b;
+}
 
-  DateTime _baseTodayLocal() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
+/// ===========================
+/// Settings
+/// ===========================
+class AreaItem {
+  final String key;
+  final String label;
+  const AreaItem({required this.key, required this.label});
+}
+
+class SettingsResult {
+  final String? areaKey;
+  final String jobKey;
+  const SettingsResult({required this.areaKey, required this.jobKey});
+}
+
+class SettingsScreen extends StatefulWidget {
+  final String title;
+  final List<AreaItem> areaItems;
+  final String? initialAreaKey;
+  final String initialJobKey;
+  final bool mustChoose;
+
+  const SettingsScreen({
+    super.key,
+    required this.title,
+    required this.areaItems,
+    required this.initialAreaKey,
+    required this.initialJobKey,
+    required this.mustChoose,
+  });
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String? _areaKey;
+  late String _jobKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _areaKey = widget.initialAreaKey ?? (widget.areaItems.isNotEmpty ? widget.areaItems.first.key : null);
+    _jobKey = widget.initialJobKey;
+  }
+
+  void _save() {
+    Navigator.of(context).pop(SettingsResult(areaKey: _areaKey, jobKey: _jobKey));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return WillPopScope(
+      onWillPop: () async => !widget.mustChoose,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+          automaticallyImplyLeading: !widget.mustChoose,
+          actions: [
+            TextButton(
+              onPressed: _areaKey == null ? null : _save,
+              child: Text(
+                '保存',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: _areaKey == null ? Colors.white.withOpacity(0.35) : Colors.white.withOpacity(0.92),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+          children: [
+            _SectionTitle(icon: Icons.place, title: '地域'),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _areaKey,
+                    dropdownColor: kSurface,
+                    items: widget.areaItems
+                        .map(
+                          (a) => DropdownMenuItem<String>(
+                            value: a.key,
+                            child: Text(a.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _areaKey = v),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionTitle(icon: Icons.work, title: '職業'),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final k in JobKeys.all)
+                      _ChoiceChip(
+                        label: JobKeys.label(k),
+                        selected: k == _jobKey,
+                        onTap: () => setState(() => _jobKey = k),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.mustChoose
+                  ? '※ 初回のみ、地域と職業を選択してください（後から設定で変更できます）'
+                  : '※ 地域と職業は設定からのみ変更できます',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(0.65)),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _areaKey == null ? null : _save,
+              child: const Text('この設定で開始'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? Colors.white.withOpacity(0.16) : Colors.white.withOpacity(0.08);
+    final border = selected ? Colors.white.withOpacity(0.26) : Colors.white.withOpacity(0.12);
+    final color = selected ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.80);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }
 
 /// ===========================
 /// Calendar Screen (later days)
+/// - Custom calendar to color Sat/Sun/Holidays
 /// ===========================
 class CalendarScreen extends StatefulWidget {
   final String title;
@@ -309,11 +516,13 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _selected;
+  late DateTime _month; // first day of month
 
   @override
   void initState() {
     super.initState();
-    _selected = widget.initialDate;
+    _selected = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
+    _month = DateTime(_selected.year, _selected.month, 1);
   }
 
   DayForecast? _forecastFor(DateTime d) {
@@ -322,26 +531,55 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return widget.forecasts[idx];
   }
 
+  bool _inRange(DateTime d) {
+    final dd = DateTime(d.year, d.month, d.day);
+    return !dd.isBefore(DateTime(widget.firstDate.year, widget.firstDate.month, widget.firstDate.day)) &&
+        !dd.isAfter(DateTime(widget.lastDate.year, widget.lastDate.month, widget.lastDate.day));
+  }
+
+  void _prevMonth() {
+    setState(() {
+      _month = DateTime(_month.year, _month.month - 1, 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + 1, 1);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final day = _forecastFor(_selected);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
+      appBar: AppBar(title: Text(widget.title)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
         children: [
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: CalendarDatePicker(
-                initialDate: _selected,
-                firstDate: widget.firstDate,
-                lastDate: widget.lastDate,
-                onDateChanged: (d) => setState(() => _selected = d),
+              child: Column(
+                children: [
+                  _MonthHeader(
+                    month: _month,
+                    onPrev: _prevMonth,
+                    onNext: _nextMonth,
+                  ),
+                  const SizedBox(height: 10),
+                  _CalendarGrid(
+                    month: _month,
+                    selected: _selected,
+                    firstDate: widget.firstDate,
+                    lastDate: widget.lastDate,
+                    inRange: _inRange,
+                    forecastFor: _forecastFor,
+                    onPick: (d) => setState(() => _selected = d),
+                  ),
+                ],
               ),
             ),
           ),
@@ -365,6 +603,185 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
+class _MonthHeader extends StatelessWidget {
+  final DateTime month;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+
+  const _MonthHeader({
+    required this.month,
+    required this.onPrev,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = '${month.year}年 ${month.month}月';
+    return Row(
+      children: [
+        IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
+        Expanded(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+        ),
+        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
+      ],
+    );
+  }
+}
+
+class _CalendarGrid extends StatelessWidget {
+  final DateTime month; // first day of month
+  final DateTime selected;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  final bool Function(DateTime) inRange;
+  final DayForecast? Function(DateTime) forecastFor;
+  final ValueChanged<DateTime> onPick;
+
+  const _CalendarGrid({
+    required this.month,
+    required this.selected,
+    required this.firstDate,
+    required this.lastDate,
+    required this.inRange,
+    required this.forecastFor,
+    required this.onPick,
+  });
+
+  static const _weekLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+  @override
+  Widget build(BuildContext context) {
+    final firstOfMonth = DateTime(month.year, month.month, 1);
+    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+
+    // grid starts on Sunday
+    final startWeekday = firstOfMonth.weekday % 7; // Sun=0, Mon=1..Sat=6
+    final totalCells = 42; // 6 rows
+
+    return Column(
+      children: [
+        Row(
+          children: List.generate(7, (i) {
+            final c = _weekdayColor(i);
+            return Expanded(
+              child: Center(
+                child: Text(
+                  _weekLabels[i],
+                  style: TextStyle(
+                    color: c.withOpacity(0.9),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          itemCount: totalCells,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: 1.1,
+          ),
+          itemBuilder: (context, idx) {
+            final dayNum = idx - startWeekday + 1;
+            if (dayNum < 1 || dayNum > daysInMonth) {
+              return const SizedBox.shrink();
+            }
+
+            final d = DateTime(month.year, month.month, dayNum);
+            final enabled = inRange(d);
+
+            final isSelected = _sameDay(d, selected);
+            final isHoliday = JapanHolidays.isHoliday(d);
+            final weekdayIndex = d.weekday % 7; // Sun=0..Sat=6
+            final textColor = _dateColor(weekdayIndex, isHoliday);
+
+            final forecast = forecastFor(d);
+            final rank = forecast?.rank;
+            final rankColor = rank == null ? null : DayCard.rankColor(rank);
+
+            return InkWell(
+              onTap: enabled ? () => onPick(d) : null,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? kAccentOrange.withOpacity(0.85) : Colors.white.withOpacity(0.10),
+                    width: isSelected ? 1.4 : 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Text(
+                        '$dayNum',
+                        style: TextStyle(
+                          color: enabled ? textColor : textColor.withOpacity(0.25),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (rank != null)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (rankColor ?? Colors.white).withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: (rankColor ?? Colors.white).withOpacity(0.35)),
+                          ),
+                          child: Text(
+                            rank,
+                            style: TextStyle(
+                              color: enabled ? (rankColor ?? Colors.white) : (rankColor ?? Colors.white).withOpacity(0.35),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static Color _weekdayColor(int weekdayIndex) {
+    // 0=Sun..6=Sat
+    if (weekdayIndex == 0) return const Color(0xFFFF5C6C);
+    if (weekdayIndex == 6) return const Color(0xFF4EA1FF);
+    return Colors.white.withOpacity(0.85);
+  }
+
+  static Color _dateColor(int weekdayIndex, bool isHoliday) {
+    if (isHoliday || weekdayIndex == 0) return const Color(0xFFFF5C6C);
+    if (weekdayIndex == 6) return const Color(0xFF4EA1FF);
+    return Colors.white.withOpacity(0.90);
+  }
+}
+
 /// ===========================
 /// Data layer
 /// ===========================
@@ -374,6 +791,19 @@ class EagleEyeData {
   EagleEyeData(this.byArea);
 
   List<String> get areaKeys => byArea.keys.toList()..sort();
+
+  List<String> areaKeysNorthToSouth() {
+    final keys = byArea.keys.toList();
+    keys.sort((a, b) {
+      final la = areaLabel(a);
+      final lb = areaLabel(b);
+      final ra = AreaOrder.rank(la);
+      final rb = AreaOrder.rank(lb);
+      if (ra != rb) return ra.compareTo(rb);
+      return la.compareTo(lb);
+    });
+    return keys;
+  }
 
   String areaLabel(String areaKey) {
     final list = byArea[areaKey];
@@ -676,10 +1106,15 @@ class DayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final rankColor = _rankColor(day.rank);
+    final rankColor = rankColor(day.rank);
     final jobLabel = JobKeys.label(selectedJobKey);
 
-    final keyFacts = _pickKeyFacts(day);
+    // Report sanitization: remove conflicting rank & filter job section
+    final sanitizedReport = ReportSanitizer.sanitize(
+      day.dailyScheduleAndImpact,
+      rank: day.rank,
+      selectedJobKey: selectedJobKey,
+    );
 
     return Card(
       child: Padding(
@@ -703,13 +1138,12 @@ class DayCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Weather overview (strong visual)
+            // Weather overview
             _SectionTitle(icon: Icons.cloud, title: '天気'),
             const SizedBox(height: 6),
             _InfoLine(
               leading: day.weatherOverview.condition,
-              text:
-                  '${day.weatherOverview.high} / ${day.weatherOverview.low}   •   降水 ${day.weatherOverview.rain}',
+              text: '${day.weatherOverview.high} / ${day.weatherOverview.low}   •   降水 ${day.weatherOverview.rain}',
             ),
             if (day.weatherOverview.warning.trim().isNotEmpty && day.weatherOverview.warning != '-')
               Padding(
@@ -723,7 +1157,8 @@ class DayCard extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // Key facts (instead of "根拠/信頼度")
+            // Key facts (general)
+            final keyFacts = _pickKeyFacts(day);
             if (keyFacts.isNotEmpty) ...[
               _SectionTitle(icon: Icons.bolt, title: '今日の要点'),
               const SizedBox(height: 6),
@@ -731,7 +1166,7 @@ class DayCard extends StatelessWidget {
               const SizedBox(height: 14),
             ],
 
-            // Rank reasons (optional; keep but not noisy)
+            // View (rank reasons)
             if (day.rankReasons.isNotEmpty) ...[
               _SectionTitle(icon: Icons.fact_check, title: '見立て'),
               const SizedBox(height: 6),
@@ -739,18 +1174,26 @@ class DayCard extends StatelessWidget {
               const SizedBox(height: 14),
             ],
 
-            // Job action (personalized)
+            // Personalized block (selected job only)
             _SectionTitle(icon: Icons.work, title: 'あなた向け（$jobLabel）'),
             const SizedBox(height: 6),
             _ActionBox(
+              title: '打ち手',
               text: (day.jobActions[selectedJobKey] ?? '').trim().isEmpty
                   ? '—'
                   : (day.jobActions[selectedJobKey] ?? '').trim(),
             ),
+            const SizedBox(height: 10),
+            if ((day.peakWindows[selectedJobKey] ?? '').trim().isNotEmpty)
+              _ActionBox(
+                title: 'ピーク目安',
+                text: (day.peakWindows[selectedJobKey] ?? '').trim(),
+                compact: true,
+              ),
 
             const SizedBox(height: 14),
 
-            // Timeline (show only selected job advice)
+            // Timeline (selected job only)
             if (day.timeline != null) ...[
               _SectionTitle(icon: Icons.schedule, title: '時間帯'),
               const SizedBox(height: 6),
@@ -762,13 +1205,17 @@ class DayCard extends StatelessWidget {
               const SizedBox(height: 14),
             ],
 
-            // Report text
-            if (day.dailyScheduleAndImpact.trim().isNotEmpty) ...[
+            // Report
+            if (sanitizedReport.trim().isNotEmpty) ...[
               _SectionTitle(icon: Icons.description, title: 'レポート'),
               const SizedBox(height: 6),
               Text(
-                day.dailyScheduleAndImpact.trim(),
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(0.85), height: 1.45),
+                sanitizedReport.trim(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withOpacity(0.88),
+                  height: 1.55,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ],
@@ -778,7 +1225,6 @@ class DayCard extends StatelessWidget {
   }
 
   static List<String> _pickKeyFacts(DayForecast day) {
-    // Prefer event/traffic facts; fallback to drivers
     final out = <String>[];
 
     for (final s in day.eventTrafficFacts) {
@@ -787,7 +1233,6 @@ class DayCard extends StatelessWidget {
     }
     if (out.isNotEmpty) return out;
 
-    // fallback
     for (final s in day.rankDrivers.positive) {
       if (out.length >= 2) break;
       out.add('増える: $s');
@@ -799,7 +1244,7 @@ class DayCard extends StatelessWidget {
     return out;
   }
 
-  static Color _rankColor(String rank) {
+  static Color rankColor(String rank) {
     switch (rank) {
       case 'S':
         return const Color(0xFFFF5C6C);
@@ -891,13 +1336,13 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.white.withOpacity(0.9)),
+        Icon(icon, size: 18, color: kAccentOrange.withOpacity(0.95)),
         const SizedBox(width: 8),
         Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w900,
-                color: Colors.white.withOpacity(0.92),
+                color: kAccentOrange.withOpacity(0.95),
               ),
         ),
       ],
@@ -920,7 +1365,8 @@ class _InfoLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: Colors.white.withOpacity(emphasis ? 0.95 : 0.85),
-          fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
+          fontWeight: emphasis ? FontWeight.w800 : FontWeight.w700,
+          height: 1.35,
         );
 
     return Row(
@@ -942,7 +1388,8 @@ class _Bullet extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Colors.white.withOpacity(0.88),
-          height: 1.45,
+          height: 1.55,
+          fontWeight: FontWeight.w600,
         );
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -958,27 +1405,48 @@ class _Bullet extends StatelessWidget {
 }
 
 class _ActionBox extends StatelessWidget {
+  final String title;
   final String text;
-  const _ActionBox({required this.text});
+  final bool compact;
+
+  const _ActionBox({
+    required this.title,
+    required this.text,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final bg = Colors.white.withOpacity(0.08);
     final border = Colors.white.withOpacity(0.12);
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: border),
       ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withOpacity(0.92),
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withOpacity(0.80),
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.92),
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -1033,7 +1501,8 @@ class _SlotCard extends StatelessWidget {
             advice,
             style: theme.textTheme.bodySmall?.copyWith(
               color: Colors.white.withOpacity(0.86),
-              height: 1.45,
+              height: 1.55,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1057,104 +1526,13 @@ class _HintRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white.withOpacity(0.62)),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withOpacity(0.62),
+                  fontWeight: FontWeight.w600,
+                ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// ===========================
-/// Bottom Job Selector (B)
-/// ===========================
-class JobSelectorBar extends StatelessWidget {
-  final String selectedJobKey;
-  final ValueChanged<String> onChanged;
-
-  const JobSelectorBar({
-    super.key,
-    required this.selectedJobKey,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = const Color(0xFF0B1220);
-    final border = Colors.white.withOpacity(0.12);
-
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: 74, // ★固定（暴走防止）
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-          decoration: BoxDecoration(
-            color: bg.withOpacity(0.92),
-            border: Border(top: BorderSide(color: border)),
-          ),
-          child: Row(
-            children: [
-              for (final k in JobKeys.all) ...[
-                Expanded(
-                  child: _JobTab(
-                    label: JobKeys.shortLabel(k),
-                    isActive: k == selectedJobKey,
-                    onTap: () => onChanged(k),
-                  ),
-                ),
-                if (k != JobKeys.all.last) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _JobTab extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _JobTab({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final active = isActive;
-
-    final bg = active ? Colors.white.withOpacity(0.16) : Colors.white.withOpacity(0.08);
-    final border = active ? Colors.white.withOpacity(0.22) : Colors.white.withOpacity(0.12);
-    final textColor = active ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.75);
-
-    return SizedBox(
-      height: 46, // ★固定（縦伸び防止）
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-                color: textColor,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1187,21 +1565,231 @@ class JobKeys {
         return k;
     }
   }
+}
 
-  static String shortLabel(String k) {
-    switch (k) {
-      case taxi:
-        return 'Taxi';
-      case delivery:
-        return 'Delivery';
-      case restaurant:
-        return 'Food';
-      case retail:
-        return 'Retail';
-      case hotel:
-        return 'Hotel';
-      default:
-        return k;
+/// ===========================
+/// Area order: North -> South (prefecture order)
+/// ===========================
+class AreaOrder {
+  static const _pref = [
+    '北海道',
+    '青森',
+    '岩手',
+    '宮城',
+    '秋田',
+    '山形',
+    '福島',
+    '茨城',
+    '栃木',
+    '群馬',
+    '埼玉',
+    '千葉',
+    '東京',
+    '神奈川',
+    '新潟',
+    '富山',
+    '石川',
+    '福井',
+    '山梨',
+    '長野',
+    '岐阜',
+    '静岡',
+    '愛知',
+    '三重',
+    '滋賀',
+    '京都',
+    '大阪',
+    '兵庫',
+    '奈良',
+    '和歌山',
+    '鳥取',
+    '島根',
+    '岡山',
+    '広島',
+    '山口',
+    '徳島',
+    '香川',
+    '愛媛',
+    '高知',
+    '福岡',
+    '佐賀',
+    '長崎',
+    '熊本',
+    '大分',
+    '宮崎',
+    '鹿児島',
+    '沖縄',
+  ];
+
+  static int rank(String label) {
+    final s = label.replaceAll(' ', '').replaceAll('　', '');
+    for (var i = 0; i < _pref.length; i++) {
+      final p = _pref[i];
+      if (s.startsWith(p)) return i;
+      if (p.length >= 2 && s.startsWith('${p}県')) return i;
+      if (p.length >= 2 && s.startsWith('${p}市')) return i;
+      if (p == '東京' && (s.startsWith('東京都') || s.startsWith('東京'))) return i;
+      if (p == '大阪' && (s.startsWith('大阪府') || s.startsWith('大阪'))) return i;
+      if (p == '京都' && (s.startsWith('京都府') || s.startsWith('京都'))) return i;
+      if (p == '北海道' && s.startsWith('北海道')) return i;
     }
+    return 9999;
+  }
+}
+
+/// ===========================
+/// Report sanitizer
+/// - Remove conflicting rank text like "Aランク"
+/// - Remove/Filter [職業別要点] block (show only selected job elsewhere)
+/// ===========================
+class ReportSanitizer {
+  static String sanitize(String raw, {required String rank, required String selectedJobKey}) {
+    var t = raw.trim();
+    if (t.isEmpty) return '';
+
+    // 1) Remove/neutralize any explicit rank mentions that can conflict with badge.
+    // e.g. "Aランク" -> "ランク"
+    t = t.replaceAll(RegExp(r'[SABC]ランク'), 'ランク');
+
+    // 2) Remove [職業別要点] block entirely (we show personalized block separately).
+    // This prevents showing all jobs and keeps "selected job only" UX.
+    t = _removeJobBlock(t);
+
+    // 3) Clean excessive blank lines
+    t = t.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+
+    return t;
+  }
+
+  static String _removeJobBlock(String t) {
+    // If block exists, drop from marker to end OR until next section marker.
+    // Very tolerant because source text can vary.
+    final lines = t.split('\n');
+    final out = <String>[];
+
+    bool skipping = false;
+    for (final line in lines) {
+      final s = line.trim();
+
+      final isStart = s.contains('職業別要点') || s.contains('[職業別要点]') || s.contains('【職業別要点】');
+      if (isStart) {
+        skipping = true;
+        continue;
+      }
+
+      // If skipping, stop skipping when we detect a new obvious section header
+      // (rare in current text). Keep simple:
+      if (skipping) {
+        // If there is a strong section header, resume (optional)
+        if (s.startsWith('【') && s.endsWith('】') && !s.contains('職業別要点')) {
+          skipping = false;
+          out.add(line);
+        }
+        continue;
+      }
+
+      out.add(line);
+    }
+
+    return out.join('\n').trim();
+  }
+}
+
+/// ===========================
+/// Japan Holidays (no package)
+/// - Supports typical modern rules + substitute + citizen's holiday
+/// - Equinox approximation for 1900-2099
+/// ===========================
+class JapanHolidays {
+  static bool isHoliday(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    final base = _baseHolidaysForYear(d.year);
+
+    // Add substitute + citizen holidays
+    final withExtra = _applySubstituteAndCitizen(base, d.year);
+
+    return withExtra.contains(d);
+  }
+
+  static Set<DateTime> _baseHolidaysForYear(int year) {
+    final set = <DateTime>{};
+
+    // Fixed-date holidays
+    set.add(DateTime(year, 1, 1)); // 元日
+    set.add(DateTime(year, 2, 11)); // 建国記念の日
+    set.add(DateTime(year, 2, 23)); // 天皇誕生日（2020-）
+    set.add(DateTime(year, 4, 29)); // 昭和の日
+    set.add(DateTime(year, 5, 3)); // 憲法記念日
+    set.add(DateTime(year, 5, 4)); // みどりの日
+    set.add(DateTime(year, 5, 5)); // こどもの日
+    set.add(DateTime(year, 8, 11)); // 山の日
+    set.add(DateTime(year, 11, 3)); // 文化の日
+    set.add(DateTime(year, 11, 23)); // 勤労感謝の日
+
+    // Monday-based
+    set.add(_nthMonday(year, 1, 2)); // 成人の日：1月第2月曜
+    set.add(_nthMonday(year, 7, 3)); // 海の日：7月第3月曜
+    set.add(_nthMonday(year, 9, 3)); // 敬老の日：9月第3月曜
+    set.add(_nthMonday(year, 10, 2)); // スポーツの日：10月第2月曜
+
+    // Equinox
+    set.add(DateTime(year, 3, _vernalEquinoxDay(year)));
+    set.add(DateTime(year, 9, _autumnalEquinoxDay(year)));
+
+    return set;
+  }
+
+  static Set<DateTime> _applySubstituteAndCitizen(Set<DateTime> base, int year) {
+    final set = {...base};
+
+    // Substitute holiday: if holiday falls on Sunday -> next weekday that isn't holiday becomes holiday.
+    // (We apply sequentially to account for chains)
+    final sorted = base.toList()..sort((a, b) => a.compareTo(b));
+    for (final h in sorted) {
+      if (h.weekday == DateTime.sunday) {
+        var sub = h.add(const Duration(days: 1));
+        while (set.contains(sub)) {
+          sub = sub.add(const Duration(days: 1));
+        }
+        set.add(sub);
+      }
+    }
+
+    // Citizen's holiday: a weekday sandwiched between two holidays becomes holiday.
+    // Iterate through the year days.
+    final start = DateTime(year, 1, 1);
+    final end = DateTime(year, 12, 31);
+    for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+      if (set.contains(d)) continue;
+      if (d.weekday == DateTime.sunday || d.weekday == DateTime.saturday) continue;
+      final prev = d.add(const Duration(days: -1));
+      final next = d.add(const Duration(days: 1));
+      if (set.contains(prev) && set.contains(next)) {
+        set.add(d);
+      }
+    }
+
+    return set;
+  }
+
+  static DateTime _nthMonday(int year, int month, int n) {
+    final first = DateTime(year, month, 1);
+    final firstWeekday = first.weekday; // Mon=1..Sun=7
+    final offsetToMon = (DateTime.monday - firstWeekday) % 7;
+    final day = 1 + offsetToMon + 7 * (n - 1);
+    return DateTime(year, month, day);
+  }
+
+  // Equinox approximation valid for 1900-2099 (commonly used)
+  static int _vernalEquinoxDay(int year) {
+    final y = year - 1980;
+    final day = (20.8431 + 0.242194 * y - (y / 4).floor()).floor();
+    return day.clamp(20, 21);
+  }
+
+  static int _autumnalEquinoxDay(int year) {
+    final y = year - 1980;
+    final day = (23.2488 + 0.242194 * y - (y / 4).floor()).floor();
+    return day.clamp(22, 24);
   }
 }
