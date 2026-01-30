@@ -1,547 +1,1678 @@
-*** a/main.py
---- b/main.py
-***************
-*** 1,40 ****
-  # main.py
-  # Eagle Eye - assets/eagle_eye_data.json generator
-  # - 5 jobs only: taxi, delivery, restaurant, retail, hotel
-  # - Writes assets/eagle_eye_data.json
-  # - Robust: still generates output even if Gemini/Open-Meteo/JMA fails
-  #
-  # 2026-01 patch:
-  # - Areas default to "major cities + Hakodate" to reduce tokens/cost (AREA_SET=all to restore)
-  # - 2-stage AI: (1) Extract signals (events/traffic/alerts) -> (2) Judge/day report
-  # - Venue list injected for better evidence
-  # - rank_reasons / rank_drivers / evidence_level added
-  # - Safety valve: low confidence => never S
+ Mounted at /content/drive
+DB_PATH = /content/drive/Othercomputers/マイ ノートパソコン/Google Drive/10_diamond_pj/db/main.db
+
   
-  import os
-  import json
-  import time
-  import re
-  import urllib.request
-  from datetime import datetime, timedelta, timezone
-  from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
   
-  import requests
-***************
-*** 55,64 ****
-  # Jobs fixed to 5 (MVP)
-  JOB_KEYS = ["taxi", "delivery", "restaurant", "retail", "hotel"]
-+ JOB_LABELS = {
-+     "taxi": "タクシー",
-+     "delivery": "デリバリー",
-+     "restaurant": "飲食店",
-+     "retail": "小売",
-+     "hotel": "ホテル",
-+ }
+    
+      
+      table_name
+    
   
-  # --- 2026 Holidays (Japan) ---
-  HOLIDAYS_2026 = {
-      "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20",
-      "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06",
-***************
-*** 205,260 ****
-  def extract_json_block(text: str) -> str:
-      m = re.search(r"\{.*\}", text, re.DOTALL)
-      return m.group(0) if m else text
-+
-+ # =========================
-+ # 2026-01 patch: text sanitizers (weather mismatch prevention)
-+ # =========================
-+ def strip_unverified_weather_sentences(text: str) -> str:
-+     """
-+     Remove sentences likely to introduce conflicting alternate forecasts (e.g. "一部の予報では...").
-+     Only drops such sentences when they contain ℃ or % (i.e. numeric claims).
-+     """
-+     if not text:
-+         return ""
-+     parts = re.split(r"(?<=[。！？])", text)
-+     keep = []
-+     for s in parts:
-+         ss = s.strip()
-+         if not ss:
-+             continue
-+         bad_kw = any(k in ss for k in (
-+             "別の予報", "異なる見解", "一部の予報", "別の見解",
-+             "別の天気", "別情報", "予報では", "ところによっては"
-+         ))
-+         if bad_kw and (("℃" in ss) or ("%" in ss) or ("％" in ss)):
-+             continue
-+         keep.append(s)
-+     return "".join(keep).strip()
-+
-+ def remove_weather_numbers(text: str) -> str:
-+     """
-+     Drop sentences containing ℃ or % (to avoid numeric contradictions in narrative).
-+     """
-+     if not text:
-+         return ""
-+     parts = re.split(r"(?<=[。！？\n])", text)
-+     keep = []
-+     for s in parts:
-+         ss = s.strip()
-+         if not ss:
-+             continue
-+         if ("℃" in ss) or ("%" in ss) or ("％" in ss):
-+             continue
-+         keep.append(s)
-+     return "".join(keep).strip()
-+
-+ def scrub_weather_numbers_in_text(s: str) -> str:
-+     """
-+     Keep meaning, remove weather numeric expressions to prevent mismatches
-+     (e.g., "最高1℃、最低-2℃", "降水確率60%").
-+     """
-+     if not s:
-+         return ""
-+     t = str(s)
-+     # drop parenthetical segments that include ℃ or %
-+     t = re.sub(r"（[^）]*(℃|%|％)[^）]*）", "", t)
-+     t = re.sub(r"\([^)]*(℃|%|％)[^)]*\)", "", t)
-+     # replace explicit temps/pops
-+     t = re.sub(r"最高\s*-?\d+\s*℃", "最高気温", t)
-+     t = re.sub(r"最低\s*-?\d+\s*℃", "最低気温", t)
-+     t = re.sub(r"-?\d+\s*℃", "", t)
-+     t = re.sub(r"\d+\s*(%|％)", "", t)
-+     # cleanup
-+     t = re.sub(r"\s+", " ", t).strip()
-+     t = t.strip("、。・ ")
-+     return t
-+
-+ def auto_confidence(evidence_level: str, facts: list) -> int:
-+     """
-+     Fill confidence when Gemini returns 0/blank.
-+     Conservative mapping + small boost by evidence amount.
-+     """
-+     base = {"high": 82, "med": 68, "low": 50}.get((evidence_level or "low").lower(), 50)
-+     n = len(facts or [])
-+     if n == 0:
-+         base -= 10
-+     elif n >= 3:
-+         base += 5
-+     return max(0, min(100, int(base)))
-+
-+ def normalize_condition_from_timeline(day_obj: dict) -> None:
-+     """
-+     Unify weather_overview.condition with timeline (prefer daytime).
-+     """
-+     if not isinstance(day_obj, dict):
-+         return
-+     tl = day_obj.get("timeline")
-+     if not isinstance(tl, dict):
-+         return
-+     pick = None
-+     for slot in ("daytime", "morning", "night"):
-+         w = (tl.get(slot) or {}).get("weather")
-+         if w and str(w).strip() not in ("-", ""):
-+             pick = str(w).strip()
-+             break
-+     if pick:
-+         day_obj.setdefault("weather_overview", {})
-+         day_obj["weather_overview"]["condition"] = pick
-+
-+ def build_daily_schedule_and_impact_safe(
-+     target_dt: datetime,
-+     weather_overview: dict,
-+     facts: list,
-+     reasons: list,
-+     signals_note: str,
-+     job_actions: dict
-+ ) -> str:
-+     """
-+     Build narrative without conflicting numeric weather claims.
-+     Weather numbers appear ONLY in the fixed overview line (from weather_overview).
-+     """
-+     label = _date_label(target_dt)
-+     wo = weather_overview or {}
-+     condition = wo.get("condition", "☁️")
-+     high = wo.get("high", "-")
-+     low = wo.get("low", "-")
-+     rain = wo.get("rain", "-")
-+     warning = wo.get("warning", "特になし") or "特になし"
-+
-+     lines = []
-+     lines.append(f"{label}の概況")
-+     lines.append(f"天気: {condition}｜{high} / {low}｜降水確率: {rain}｜警報注意報: {warning}")
-+
-+     f = [str(x).strip() for x in (facts or []) if str(x).strip()]
-+     if f:
-+         lines.append("")
-+         lines.append("■イベント/交通（観測）")
-+         for x in f[:6]:
-+             lines.append(f"- {x}")
-+
-+     # build "見立て" from reasons + signals_note (sanitized, non-numeric)
-+     rs = [scrub_weather_numbers_in_text(x) for x in (reasons or []) if scrub_weather_numbers_in_text(x)]
-+     note = strip_unverified_weather_sentences(signals_note or "")
-+     note = remove_weather_numbers(note).strip()
-+
-+     if rs or note:
-+         lines.append("")
-+         lines.append("■見立て")
-+         for x in rs[:5]:
-+             lines.append(f"- {x}")
-+         if note:
-+             lines.append(note)
-+
-+     lines.append("")
-+     lines.append("【職業別要点】")
-+     ja = job_actions or {}
-+     for k in JOB_KEYS:
-+         lines.append(f"{JOB_LABELS.get(k, k)}: {str(ja.get(k, '-') or '-').strip()}")
-+
-+     return "\n".join(lines).strip()
   
-  def clamp_rank(rank: str, max_rank: str) -> str:
-      # Higher is "S", then A, B, C
-      order = ["S", "A", "B", "C"]
-      try:
-***************
-*** 573,612 ****
-  def build_long_term_day(area_key: str, area_name: str, target_dt: datetime, long_term_text: str):
-      full_date = _date_label(target_dt)
-      rank = base_rank_for_date(target_dt)
+    
+      0
+      bars
+    
+    
+      1
+      dim_calendar
+    
+    
+      2
+      dim_master
+    
+    
+      3
+      fact_earnings_calendar
+    
+    
+      4
+      fact_fins_summary
+    
+    
+      5
+      fact_investor_types
+    
+    
+      6
+      fact_price
+    
+    
+      7
+      fact_price_raw
+    
+    
+      8
+      fact_topix
+    
+    
+      9
+      ingest_daily_status
+    
+    
+      10
+      listed_info
+    
+    
+      11
+      trading_calendar
+    
+    
+      12
+      v_bars
+    
+    
+      13
+      v_bars_raw
+    
   
-      wo = {
-          "condition": "☁️",
-          "high": "-",
-          "low": "-",
-          "rain": "-",
--         "rain_am": None,
--         "rain_pm": None,
--         "rain_night": None,
--         "warning": "-"
-+         "rain_am": "-",
-+         "rain_pm": "-",
-+         "rain_night": "-",
-+         "warning": "特になし"
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-8db14700-cff1-4aca-989d-ef3b323082f1 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-8db14700-cff1-4aca-989d-ef3b323082f1');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
       }
+    
   
-      return {
-          "area_key": area_key,
-          "area_name": area_name,
-          "date": full_date,
-          "is_long_term": True,
-          "rank": rank,
-          "rank_reasons": [],
-          "rank_drivers": {"positive": [], "negative": []},
-          "evidence_level": "low",
-          "weather_overview": wo,
-          "event_traffic_facts": [],
-          "peak_windows": {k: "" for k in JOB_KEYS},
-          "job_actions": {k: "" for k in JOB_KEYS},
-          "daily_schedule_and_impact": f"【{target_dt.strftime('%m月%d日')}の長期予測】\n\n■長期傾向\n{long_term_text}\n",
-          "timeline": None,
--         "confidence": 0
-+         "confidence": 30
+
+
+  
+    
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
       }
-***************
-*** 744,915 ****
-  def generate_ai_day(area_key: str, area_data, target_dt: datetime, jma_day_data, warning_text: str, slot_weather, signals_for_day: dict):
-      """
-      Stage2:
-        Build evidence and ask Gemini to judge:
-          - rank (S/A/B/C)
-          - rank_reasons, rank_drivers, evidence_level, confidence
-          - plus existing fields expected by main.dart
-      If Gemini unavailable/fails -> returns None.
-      """
-      if not API_KEY:
-          return None
-  
-      date_str = target_dt.strftime("%Y-%m-%d")
-      full_date = _date_label(target_dt)
-  
-      w_code = (jma_day_data or {}).get("code", "200")
-      w_emoji = get_weather_emoji_jma(w_code)
-  
-      now_dt = datetime.now(JST)
-      is_today = (target_dt.date() == now_dt.date())
-  
-      high, low = decide_high_low(area_data, jma_day_data or {}, is_today=is_today)
-  
-      jma_rain_fallback = decide_rain_display_jma(jma_day_data or {})
-      if not slot_weather:
-          slot_weather = {
-              "morning": {"weather": w_emoji, "temp": "-", "temp_high": "-", "temp_low": "-", "humidity": "-", "rain": jma_rain_fallback, "wcode": None},
-              "daytime": {"weather": w_emoji, "temp": "-", "temp_high": "-", "temp_low": "-", "humidity": "-", "rain": jma_rain_fallback, "wcode": None},
-              "night": {"weather": w_emoji, "temp": "-", "temp_high": "-", "temp_low": "-", "humidity": "-", "rain": jma_rain_fallback, "wcode": None},
-          }
-  
-      rain_am, rain_pm, rain_ng = decide_rain_am_pm(slot_weather, jma_fallback=jma_rain_fallback)
-      rain_display = f"午前{rain_am} / 午後{rain_pm}"
-  
-      venues = AREA_VENUES.get(area_key, [])
-      cal = build_calendar_factors(target_dt)
-  
-      # Evidence object (structured; keeps tokens reasonable)
-      evidence = {
-          "area": {
-              "key": area_key,
-              "name": area_data["name"],
-              "feature": area_data.get("feature", ""),
-              "venues_hint": venues[:10]
-          },
-          "date": {
-              "date": date_str,
-              "label": full_date,
-              "calendar": cal
-          },
-          "weather": {
-              "jma_code": w_code,
-              "condition": w_emoji,
-              "high": f"{high}",
-              "low": f"{low}",
-              "warning": warning_text,
-              "rain": {
-                  "am": rain_am,
-                  "pm": rain_pm,
-                  "night": rain_ng,
-                  "display": rain_display
-              },
-              "slots": slot_weather
-          },
-          "signals": signals_for_day if isinstance(signals_for_day, dict) else {
-              "events": [], "traffic": [], "alerts": [],
-              "overall_note": "", "evidence_level": "low", "sources_note": ""
-          }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
       }
-  
-      # Schema hint for stage2 output
-      schema_hint = {
-          "area_key": area_key,
-          "area_name": area_data["name"],
-          "date": full_date,
-          "is_long_term": False,
-          "rank": "S/A/B/C",
-          "rank_reasons": ["(max 5) なぜそのランクか（具体的）"],
-          "rank_drivers": {"positive": ["..."], "negative": ["..."]},
-          "evidence_level": "high/med/low",
-          "confidence": 0,
-          "weather_overview": {
-              "condition": w_emoji,
-              "high": f"最高{high}℃",
-              "low": f"最低{low}℃",
-              "rain": rain_display,
-              "rain_am": rain_am,
-              "rain_pm": rain_pm,
-              "rain_night": rain_ng,
-              "warning": warning_text
-          },
-          "event_traffic_facts": ["(max 6)"],
-          "peak_windows": {k: "" for k in JOB_KEYS},
-          "job_actions": {k: "" for k in JOB_KEYS},
-          "daily_schedule_and_impact": "レポート本文（改行OK。最後に職業別要点を含める）",
-          "timeline": {
-              "morning": {
-                  "weather": slot_weather["morning"]["weather"],
-                  "temp": slot_weather["morning"]["temp"],
-                  "temp_high": slot_weather["morning"]["temp_high"],
-                  "temp_low": slot_weather["morning"]["temp_low"],
-                  "humidity": slot_weather["morning"]["humidity"],
-                  "rain": slot_weather["morning"]["rain"],
-                  "advice": {k: "" for k in JOB_KEYS}
-              },
-              "daytime": {
-                  "weather": slot_weather["daytime"]["weather"],
-                  "temp": slot_weather["daytime"]["temp"],
-                  "temp_high": slot_weather["daytime"]["temp_high"],
-                  "temp_low": slot_weather["daytime"]["temp_low"],
-                  "humidity": slot_weather["daytime"]["humidity"],
-                  "rain": slot_weather["daytime"]["rain"],
-                  "advice": {k: "" for k in JOB_KEYS}
-              },
-              "night": {
-                  "weather": slot_weather["night"]["weather"],
-                  "temp": slot_weather["night"]["temp"],
-                  "temp_high": slot_weather["night"]["temp_high"],
-                  "temp_low": slot_weather["night"]["temp_low"],
-                  "humidity": slot_weather["night"]["humidity"],
-                  "rain": slot_weather["night"]["rain"],
-                  "advice": {k: "" for k in JOB_KEYS}
-              }
-          }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
       }
-  
-      prompt = (
-          "あなたは世界トップクラスの戦略コンサルタントです。\n"
-          "次の evidence(JSON) に基づき、その日の混雑予測ランクと根拠、職業別提案を作ってください。\n\n"
-  
-          "【重要ルール】\n"
-          "- フェイク禁止。evidenceにない固有名詞を作らない（会場名/イベント名を捏造しない）。\n"
-          "- 曖昧なら未確認とし、confidence/evidence_level を下げる。\n"
-          "- 曜日だけでランクを決めない（曜日は参考に留める）。\n"
-          "- rank_reasons は「誰が見てもそうだよね」と言える具体根拠（最大5）。\n"
-          "- rank_drivers は増える要因/減る要因の両方を短文で。\n"
-          "- event_traffic_facts は最大6件、短い箇条書き。\n"
-          "- peak_windows / timeline.*.advice / job_actions は必ず全職業キーを埋める。\n"
-          "- job_actions は各職業1行で高密度（区切りは「｜」推奨）。\n"
-+         "- daily_schedule_and_impact に天気の数値（℃/%）を入れない（数値はweather_overviewに集約）。\n\n"
-  
-          "【出力はJSONのみ】\n"
-          "次のスキーマを最低限満たすこと（キー追加は可）。\n\n"
-          + json.dumps(schema_hint, ensure_ascii=False, indent=2)
-          + "\n\n【evidence】\n"
-          + json.dumps(evidence, ensure_ascii=False)
-      )
-  
-      res = call_gemini_json(prompt)
-      if not res:
-          return None
-  
-      try:
-          j = json.loads(extract_json_block(res))
-      except Exception:
-          return None
-  
-      # ---- sanitize & ensure schema for main.dart ----
-      j.setdefault("area_key", area_key)
-      j.setdefault("area_name", area_data["name"])
-      j.setdefault("date", full_date)
-      j.setdefault("is_long_term", False)
-  
-      # rank + reasons
-      j["rank"] = str(j.get("rank") or "C").strip().upper()
-      rr = j.get("rank_reasons")
-      if not isinstance(rr, list):
-          rr = []
--     j["rank_reasons"] = [str(x).strip() for x in rr if str(x).strip()][:5]
-+     # remove weather numeric expressions from reasons to avoid mismatches
-+     j["rank_reasons"] = [scrub_weather_numbers_in_text(str(x).strip()) for x in rr if str(x).strip()]
-+     j["rank_reasons"] = [x for x in j["rank_reasons"] if x][:5]
-  
-      rd = j.get("rank_drivers")
-      if not isinstance(rd, dict):
-          rd = {"positive": [], "negative": []}
-      pos = rd.get("positive")
-      neg = rd.get("negative")
-      if not isinstance(pos, list):
-          pos = []
-      if not isinstance(neg, list):
-          neg = []
-      j["rank_drivers"] = {
--         "positive": [str(x).strip() for x in pos if str(x).strip()][:5],
--         "negative": [str(x).strip() for x in neg if str(x).strip()][:5]
-+         "positive": [scrub_weather_numbers_in_text(str(x).strip()) for x in pos if str(x).strip()][:5],
-+         "negative": [scrub_weather_numbers_in_text(str(x).strip()) for x in neg if str(x).strip()][:5]
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
       }
-+     j["rank_drivers"]["positive"] = [x for x in j["rank_drivers"]["positive"] if x]
-+     j["rank_drivers"]["negative"] = [x for x in j["rank_drivers"]["negative"] if x]
+    
+    
+
   
-      evl = str(j.get("evidence_level") or (signals_for_day.get("evidence_level") if isinstance(signals_for_day, dict) else "low")).strip().lower()
-      if evl not in ("high", "med", "low"):
-          evl = "low"
-      j["evidence_level"] = evl
+    
   
-      conf = j.get("confidence")
-      try:
-          j["confidence"] = int(conf)
-      except Exception:
-          j["confidence"] = 0
+    
+    
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_48b43fc5-bb20-4f63-a4a9-ea27c4b42bd4 button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('tables');
+      }
+      })();
+    
   
-      # weather_overview
-      wo = j.get("weather_overview") or {}
-      wo.setdefault("condition", w_emoji)
-      wo.setdefault("high", f"最高{high}℃")
-      wo.setdefault("low", f"最低{low}℃")
-      wo.setdefault("rain", rain_display)
-      wo.setdefault("rain_am", rain_am)
-      wo.setdefault("rain_pm", rain_pm)
-      wo.setdefault("rain_night", rain_ng)
-      wo.setdefault("warning", warning_text)
-      j["weather_overview"] = wo
+
+    
   
-      # event_traffic_facts
-      facts_fallback = signals_to_facts(signals_for_day, max_items=6)
-      et = j.get("event_traffic_facts")
-      if not isinstance(et, list):
-          et = facts_fallback
-      et_clean = [str(x).strip() for x in et if str(x).strip()]
-      if not et_clean:
-          et_clean = facts_fallback
-      j["event_traffic_facts"] = et_clean[:6]
+
   
-      # peak_windows / job_actions
-      pw = j.get("peak_windows") or {}
-      if not isinstance(pw, dict):
-          pw = {}
-      for k in JOB_KEYS:
-          pw.setdefault(k, "")
-      j["peak_windows"] = {k: str(pw.get(k, "")).strip() for k in JOB_KEYS}
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
   
-      ja = j.get("job_actions") or {}
-      if not isinstance(ja, dict):
-          ja = {}
-      for k in JOB_KEYS:
-          ja.setdefault(k, "")
-      j["job_actions"] = {k: str(ja.get(k, "")).strip() for k in JOB_KEYS}
+    
+      
+      table_name
+      rows
+    
   
-      j.setdefault("daily_schedule_and_impact", "")
   
-      # timeline: ensure slots & advice
-      tl = j.get("timeline")
-      if not isinstance(tl, dict):
-          tl = {}
-      for slot_name in ["morning", "daytime", "night"]:
-          slot_src = tl.get(slot_name) if isinstance(tl.get(slot_name), dict) else {}
-          base = slot_weather.get(slot_name, {})
-          slot_src["weather"] = str(slot_src.get("weather") or base.get("weather") or "☁️")
-          slot_src["temp"] = str(slot_src.get("temp") or base.get("temp") or "-")
-          slot_src["temp_high"] = str(slot_src.get("temp_high") or base.get("temp_high") or "-")
-          slot_src["temp_low"] = str(slot_src.get("temp_low") or base.get("temp_low") or "-")
-          slot_src["humidity"] = str(slot_src.get("humidity") or base.get("humidity") or "-")
-          slot_src["rain"] = str(slot_src.get("rain") or base.get("rain") or "-")
+    
+      0
+      bars
+      5235019
+    
+    
+      1
+      v_bars
+      5235019
+    
   
-          advice = slot_src.get("advice") if isinstance(slot_src.get("advice"), dict) else {}
-          for k in JOB_KEYS:
-              advice.setdefault(k, "")
-          slot_src["advice"] = {k: str(advice.get(k, "")).strip() for k in JOB_KEYS}
-          tl[slot_name] = slot_src
-      j["timeline"] = tl
+
+
+    
+
   
-      # normalize hi/lo for display stability
-      normalize_high_low_from_timeline(j)
-+     # unify condition with timeline (avoid condition mismatch)
-+     normalize_condition_from_timeline(j)
+    
+
   
--     # Safety valve: low confidence => no S
--     apply_rank_safety(j)
-+     # If confidence missing/0, auto-fill conservatively
-+     if int(j.get("confidence") or 0) <= 0:
-+         j["confidence"] = auto_confidence(j.get("evidence_level"), j.get("event_traffic_facts"))
-+     # Safety valve: low confidence => no S
-+     apply_rank_safety(j)
+    
   
-      # If reasons empty, create minimal reasons from evidence (no fabrication)
-      if not j["rank_reasons"]:
-          auto = []
-          if facts_fallback:
-              auto.append(f"観測材料: {facts_fallback[0]}")
-          # weather: use slot rain and warning
-          if warning_text and warning_text != "特になし":
-              auto.append(f"警報注意報: {warning_text}")
-          if rain_am != "-" or rain_pm != "-" or rain_ng != "-":
-              auto.append(f"降水見込み: 午前{rain_am}/午後{rain_pm}/夜{rain_ng}")
-          j["rank_reasons"] = auto[:5]
+    
+
   
-+     # ---- rebuild daily_schedule_and_impact safely (apply to ALL AI days) ----
-+     signals_note = ""
-+     if isinstance(signals_for_day, dict):
-+         signals_note = str(signals_for_day.get("overall_note") or "").strip()
-+     # also sanitize Gemini narrative (if any) and merge (non-numeric only)
-+     gemini_text = strip_unverified_weather_sentences(str(j.get("daily_schedule_and_impact") or ""))
-+     gemini_text = remove_weather_numbers(gemini_text).strip()
-+     if gemini_text:
-+         signals_note = (signals_note + "\n" + gemini_text).strip() if signals_note else gemini_text
-+
-+     j["daily_schedule_and_impact"] = build_daily_schedule_and_impact_safe(
-+         target_dt=target_dt,
-+         weather_overview=j.get("weather_overview"),
-+         facts=j.get("event_traffic_facts"),
-+         reasons=j.get("rank_reasons"),
-+         signals_note=signals_note,
-+         job_actions=j.get("job_actions"),
-+     )
-+
-      return j
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-328dc7aa-041e-423c-ba4b-026a6914fdc8 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-328dc7aa-041e-423c-ba4b-026a6914fdc8');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+  
+    
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
+      }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
+      }
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
+      }
+    
+    
+
+  
+    
+  
+    
+    
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_f6a1bacd-08de-48b7-978a-cb12b0261dea button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('counts');
+      }
+      })();
+    
+  
+
+    
+  
+
+  
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
+  
+    
+      
+      Date
+      n_rows
+      n_code4
+      n_notrade
+    
+  
+  
+    
+      0
+      2021-02-01
+      4086
+      4084
+      103.0
+    
+    
+      1
+      2021-02-02
+      4086
+      4084
+      108.0
+    
+    
+      2
+      2021-02-03
+      4086
+      4084
+      99.0
+    
+    
+      3
+      2021-02-04
+      4085
+      4084
+      115.0
+    
+    
+      4
+      2021-02-05
+      4086
+      4085
+      104.0
+    
+  
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-b3f60256-2f00-4ace-9f23-e9b0d03e7f5d button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-b3f60256-2f00-4ace-9f23-e9b0d03e7f5d');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+    
+  
+
+  
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
+  
+    
+      
+      Date
+      n_rows
+      n_code4
+      n_notrade
+    
+  
+  
+    
+      1218
+      2026-01-26
+      4438
+      4432
+      183.0
+    
+    
+      1219
+      2026-01-27
+      4437
+      4431
+      206.0
+    
+    
+      1220
+      2026-01-28
+      4437
+      4431
+      202.0
+    
+    
+      1221
+      2026-01-29
+      4435
+      4429
+      214.0
+    
+    
+      1222
+      2026-01-30
+      4435
+      4429
+      195.0
+    
+  
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-9d4d16c6-470b-4310-9ab4-d3f58c973bef button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-9d4d16c6-470b-4310-9ab4-d3f58c973bef');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+    
+  
+median n_code4 = 4277.0
+
+  
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
+  
+    
+      
+      Date
+      n_rows
+      n_code4
+      n_notrade
+    
+  
+  
+  
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-a11d9918-5de5-46cf-9423-0113d4ec5f1d button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-a11d9918-5de5-46cf-9423-0113d4ec5f1d');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+    
+  
+
+  
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
+  
+    
+      
+      Date
+      Code4
+      n
+    
+  
+  
+    
+      0
+      2024-11-20
+      9434
+      3
+    
+    
+      1
+      2025-03-28
+      9434
+      3
+    
+    
+      2
+      2024-11-25
+      9434
+      3
+    
+    
+      3
+      2025-06-17
+      9434
+      3
+    
+    
+      4
+      2025-04-02
+      9434
+      3
+    
+    
+      5
+      2024-12-06
+      9434
+      3
+    
+    
+      6
+      2024-12-03
+      9434
+      3
+    
+    
+      7
+      2025-07-01
+      9434
+      3
+    
+    
+      8
+      2025-06-20
+      9434
+      3
+    
+    
+      9
+      2025-04-17
+      9434
+      3
+    
+    
+      10
+      2025-04-09
+      9434
+      3
+    
+    
+      11
+      2024-12-16
+      9434
+      3
+    
+    
+      12
+      2024-12-11
+      9434
+      3
+    
+    
+      13
+      2024-11-26
+      9434
+      3
+    
+    
+      14
+      2025-03-27
+      9434
+      3
+    
+    
+      15
+      2025-07-11
+      9434
+      3
+    
+    
+      16
+      2025-07-07
+      9434
+      3
+    
+    
+      17
+      2025-06-23
+      9434
+      3
+    
+    
+      18
+      2025-06-30
+      9434
+      3
+    
+    
+      19
+      2025-04-24
+      9434
+      3
+    
+    
+      20
+      2025-04-22
+      9434
+      3
+    
+    
+      21
+      2025-04-03
+      9434
+      3
+    
+    
+      22
+      2025-06-13
+      9434
+      3
+    
+    
+      23
+      2024-12-18
+      9434
+      3
+    
+    
+      24
+      2025-03-25
+      9434
+      3
+    
+    
+      25
+      2024-12-10
+      9434
+      3
+    
+    
+      26
+      2025-03-26
+      9434
+      3
+    
+    
+      27
+      2024-11-28
+      9434
+      3
+    
+    
+      28
+      2024-11-29
+      9434
+      3
+    
+    
+      29
+      2024-11-22
+      9434
+      3
+    
+    
+      30
+      2025-09-08
+      9434
+      3
+    
+    
+      31
+      2025-07-16
+      9434
+      3
+    
+    
+      32
+      2025-07-17
+      9434
+      3
+    
+    
+      33
+      2025-07-03
+      9434
+      3
+    
+    
+      34
+      2025-09-01
+      9434
+      3
+    
+    
+      35
+      2025-06-25
+      9434
+      3
+    
+    
+      36
+      2025-06-26
+      9434
+      3
+    
+    
+      37
+      2025-06-18
+      9434
+      3
+    
+    
+      38
+      2025-09-03
+      9434
+      3
+    
+    
+      39
+      2025-04-25
+      9434
+      3
+    
+    
+      40
+      2025-04-28
+      9434
+      3
+    
+    
+      41
+      2025-04-18
+      9434
+      3
+    
+    
+      42
+      2025-06-12
+      9434
+      3
+    
+    
+      43
+      2025-04-07
+      9434
+      3
+    
+    
+      44
+      2025-04-08
+      9434
+      3
+    
+    
+      45
+      2025-04-01
+      9434
+      3
+    
+    
+      46
+      2025-09-04
+      9434
+      3
+    
+    
+      47
+      2025-03-21
+      9434
+      3
+    
+    
+      48
+      2025-03-24
+      9434
+      3
+    
+    
+      49
+      2025-09-09
+      9434
+      3
+    
+  
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-27ed6210-e17f-464f-a7b9-6d1c6712ff92 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-27ed6210-e17f-464f-a7b9-6d1c6712ff92');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+  
+    
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
+      }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
+      }
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
+      }
+    
+    
+
+  
+    
+  
+    
+    
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_773c0a0b-4418-4a74-96c4-b3137d27fe26 button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('dups');
+      }
+      })();
+    
+  
+
+    
+  
+
+  
+    
+
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+
+  
+    
+      
+      Date
+      Code4
+      Code
+      Open
+      High
+      Low
+      Close
+      Volume
+      TurnoverValue
+      IsNoTrade
+    
+  
+  
+    
+      0
+      2026-01-30
+      1301
+      13010
+      5100.0
+      5140.0
+      5060.0
+      5140.0
+      42100.0
+      2.148000e+08
+      False
+    
+    
+      1
+      2026-01-30
+      1305
+      13050
+      3776.0
+      3792.0
+      3753.0
+      3785.0
+      37560.0
+      1.420538e+08
+      False
+    
+    
+      2
+      2026-01-30
+      1306
+      13060
+      3737.0
+      3752.0
+      3712.0
+      3744.0
+      1982240.0
+      7.413928e+09
+      False
+    
+    
+      3
+      2026-01-30
+      1308
+      13080
+      3690.0
+      3707.0
+      3669.0
+      3706.0
+      455444.0
+      1.681818e+09
+      False
+    
+    
+      4
+      2026-01-30
+      1309
+      13090
+      55200.0
+      55500.0
+      54420.0
+      54960.0
+      101.0
+      5.540230e+06
+      False
+    
+    
+      5
+      2026-01-30
+      130A
+      130A0
+      482.0
+      496.0
+      478.0
+      493.0
+      89000.0
+      4.337910e+07
+      False
+    
+    
+      6
+      2026-01-30
+      1311
+      13110
+      1860.0
+      1872.0
+      1852.0
+      1870.0
+      14013.0
+      2.614496e+07
+      False
+    
+    
+      7
+      2026-01-30
+      1320
+      13200
+      55150.0
+      55450.0
+      54810.0
+      55170.0
+      26711.0
+      1.473082e+09
+      False
+    
+    
+      8
+      2026-01-30
+      1321
+      13210
+      55350.0
+      55650.0
+      55010.0
+      55390.0
+      277576.0
+      1.536856e+10
+      False
+    
+    
+      9
+      2026-01-30
+      1322
+      13220
+      11290.0
+      11290.0
+      10985.0
+      11050.0
+      750.0
+      8.318230e+06
+      False
+    
+    
+      10
+      2026-01-30
+      1325
+      13250
+      308.0
+      308.0
+      297.0
+      299.3
+      171870.0
+      5.219379e+07
+      False
+    
+    
+      11
+      2026-01-30
+      1326
+      13260
+      76650.0
+      76840.0
+      72350.0
+      73120.0
+      172244.0
+      1.283279e+10
+      False
+    
+    
+      12
+      2026-01-30
+      1328
+      13280
+      19790.0
+      19845.0
+      18700.0
+      18895.0
+      409450.0
+      7.891583e+09
+      False
+    
+    
+      13
+      2026-01-30
+      1329
+      13290
+      5552.0
+      5578.0
+      5512.0
+      5546.0
+      418116.0
+      2.319138e+09
+      False
+    
+    
+      14
+      2026-01-30
+      1330
+      13300
+      55410.0
+      55710.0
+      55070.0
+      55460.0
+      18477.0
+      1.024480e+09
+      False
+    
+    
+      15
+      2026-01-30
+      1332
+      13320
+      1276.0
+      1298.5
+      1273.0
+      1295.0
+      1504500.0
+      1.940484e+09
+      False
+    
+    
+      16
+      2026-01-30
+      1333
+      13330
+      1391.0
+      1397.5
+      1385.5
+      1388.5
+      467800.0
+      6.503381e+08
+      False
+    
+    
+      17
+      2026-01-30
+      133A
+      133A0
+      1034.0
+      1040.0
+      1033.0
+      1040.0
+      71523.0
+      7.417632e+07
+      False
+    
+    
+      18
+      2026-01-30
+      1343
+      13430
+      2167.5
+      2174.0
+      2151.5
+      2151.5
+      1875680.0
+      4.051262e+09
+      False
+    
+    
+      19
+      2026-01-30
+      1345
+      13450
+      2033.5
+      2033.5
+      2012.0
+      2014.5
+      58200.0
+      1.174990e+08
+      False
+    
+  
+
+
+    
+
+  
+    
+
+  
+    
+  
+    
+
+  
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  
+
+    
+      const buttonEl =
+        document.querySelector('#df-a2d8a485-3a9e-4bf0-a19c-6e80dab89982 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-a2d8a485-3a9e-4bf0-a19c-6e80dab89982');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    
+  
+
+
+  
+    
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
+      }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
+      }
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
+      }
+    
+    
+
+  
+    
+  
+    
+    
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_5093e97e-3824-4c5c-a643-1108fd244469 button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('sample');
+      }
+      })();
+    
+  
+
+    
+  
+DONE
