@@ -58,7 +58,8 @@ class EagleEyeApp extends StatelessWidget {
         dropdownMenuTheme: DropdownMenuThemeData(
           textStyle: const TextStyle(color: Colors.white),
           menuStyle: MenuStyle(
-            backgroundColor: WidgetStateProperty.all(kSurface),
+            // Flutter 3.19: MaterialStateProperty (WidgetStateProperty is newer)
+            backgroundColor: MaterialStateProperty.all(kSurface),
           ),
         ),
       ),
@@ -88,6 +89,9 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
   String _selectedJobKey = JobKeys.taxi;
   bool _setupDone = false;
 
+  // Prevent multi-push of initial setup dialog
+  bool _setupLaunching = false;
+
   // Paging
   final PageController _pageController = PageController(initialPage: 0);
   int _pageIndex = 0;
@@ -110,15 +114,16 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
   }
 
   Future<void> _ensureSetup(EagleEyeData data) async {
-    if (_setupDone) return;
+    if (_setupDone || _setupLaunching) return;
+    _setupLaunching = true;
 
-    // Default candidates (but force user to confirm once)
     final orderedKeys = data.areaKeysNorthToSouth();
     final initialArea = _selectedAreaKey ?? (orderedKeys.isNotEmpty ? orderedKeys.first : null);
     final initialJob = _selectedJobKey;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
       final res = await Navigator.of(context).push<SettingsResult?>(
         MaterialPageRoute(
           fullscreenDialog: true,
@@ -138,6 +143,7 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
         _selectedAreaKey = res?.areaKey ?? initialArea;
         _selectedJobKey = res?.jobKey ?? initialJob;
         _setupDone = true;
+        _setupLaunching = false;
         _pageIndex = 0;
         _pageController.jumpToPage(0);
       });
@@ -662,7 +668,7 @@ class _CalendarGrid extends StatelessWidget {
 
     // grid starts on Sunday
     final startWeekday = firstOfMonth.weekday % 7; // Sun=0, Mon=1..Sat=6
-    final totalCells = 42; // 6 rows
+    const totalCells = 42; // 6 rows
 
     return Column(
       children: [
@@ -709,7 +715,7 @@ class _CalendarGrid extends StatelessWidget {
 
             final forecast = forecastFor(d);
             final rank = forecast?.rank;
-            final rankColor = rank == null ? null : DayCard.rankColor(rank);
+            final rankColorValue = rank == null ? null : DayCard.rankColor(rank);
 
             return InkWell(
               onTap: enabled ? () => onPick(d) : null,
@@ -742,14 +748,16 @@ class _CalendarGrid extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: BoxDecoration(
-                            color: (rankColor ?? Colors.white).withOpacity(0.18),
+                            color: (rankColorValue ?? Colors.white).withOpacity(0.18),
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: (rankColor ?? Colors.white).withOpacity(0.35)),
+                            border: Border.all(color: (rankColorValue ?? Colors.white).withOpacity(0.35)),
                           ),
                           child: Text(
                             rank,
                             style: TextStyle(
-                              color: enabled ? (rankColor ?? Colors.white) : (rankColor ?? Colors.white).withOpacity(0.35),
+                              color: enabled
+                                  ? (rankColorValue ?? Colors.white)
+                                  : (rankColorValue ?? Colors.white).withOpacity(0.35),
                               fontWeight: FontWeight.w900,
                               fontSize: 10,
                             ),
@@ -1106,8 +1114,12 @@ class DayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final rankColor = rankColor(day.rank);
+    // FIX: avoid name collision (rankColor variable vs rankColor method)
+    final Color rankColorValue = DayCard.rankColor(day.rank);
     final jobLabel = JobKeys.label(selectedJobKey);
+
+    // FIX: do not declare 'final' inside children list
+    final keyFacts = _pickKeyFacts(day);
 
     // Report sanitization: remove conflicting rank & filter job section
     final sanitizedReport = ReportSanitizer.sanitize(
@@ -1133,7 +1145,7 @@ class DayCard extends StatelessWidget {
                         ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                 ),
-                _RankBadge(rank: day.rank, color: rankColor),
+                _RankBadge(rank: day.rank, color: rankColorValue),
               ],
             ),
             const SizedBox(height: 10),
@@ -1158,7 +1170,6 @@ class DayCard extends StatelessWidget {
             const SizedBox(height: 14),
 
             // Key facts (general)
-            final keyFacts = _pickKeyFacts(day);
             if (keyFacts.isNotEmpty) ...[
               _SectionTitle(icon: Icons.bolt, title: '今日の要点'),
               const SizedBox(height: 6),
@@ -1651,8 +1662,7 @@ class ReportSanitizer {
     // e.g. "Aランク" -> "ランク"
     t = t.replaceAll(RegExp(r'[SABC]ランク'), 'ランク');
 
-    // 2) Remove [職業別要点] block entirely (we show personalized block separately).
-    // This prevents showing all jobs and keeps "selected job only" UX.
+    // 2) Remove [職業別要点] block entirely
     t = _removeJobBlock(t);
 
     // 3) Clean excessive blank lines
@@ -1662,8 +1672,6 @@ class ReportSanitizer {
   }
 
   static String _removeJobBlock(String t) {
-    // If block exists, drop from marker to end OR until next section marker.
-    // Very tolerant because source text can vary.
     final lines = t.split('\n');
     final out = <String>[];
 
@@ -1677,10 +1685,7 @@ class ReportSanitizer {
         continue;
       }
 
-      // If skipping, stop skipping when we detect a new obvious section header
-      // (rare in current text). Keep simple:
       if (skipping) {
-        // If there is a strong section header, resume (optional)
         if (s.startsWith('【') && s.endsWith('】') && !s.contains('職業別要点')) {
           skipping = false;
           out.add(line);
@@ -1705,7 +1710,6 @@ class JapanHolidays {
     final d = DateTime(date.year, date.month, date.day);
     final base = _baseHolidaysForYear(d.year);
 
-    // Add substitute + citizen holidays
     final withExtra = _applySubstituteAndCitizen(base, d.year);
 
     return withExtra.contains(d);
@@ -1743,7 +1747,6 @@ class JapanHolidays {
     final set = {...base};
 
     // Substitute holiday: if holiday falls on Sunday -> next weekday that isn't holiday becomes holiday.
-    // (We apply sequentially to account for chains)
     final sorted = base.toList()..sort((a, b) => a.compareTo(b));
     for (final h in sorted) {
       if (h.weekday == DateTime.sunday) {
@@ -1756,7 +1759,6 @@ class JapanHolidays {
     }
 
     // Citizen's holiday: a weekday sandwiched between two holidays becomes holiday.
-    // Iterate through the year days.
     final start = DateTime(year, 1, 1);
     final end = DateTime(year, 12, 31);
     for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
@@ -1780,7 +1782,7 @@ class JapanHolidays {
     return DateTime(year, month, day);
   }
 
-  // Equinox approximation valid for 1900-2099 (commonly used)
+  // Equinox approximation valid for 1900-2099
   static int _vernalEquinoxDay(int year) {
     final y = year - 1980;
     final day = (20.8431 + 0.242194 * y - (y / 4).floor()).floor();
