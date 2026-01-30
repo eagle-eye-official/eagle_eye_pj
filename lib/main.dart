@@ -228,7 +228,8 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
                         itemBuilder: (context, i) {
                           final label = (i == 0) ? '今日' : (i == 1) ? '明日' : '明後日';
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 88), // leave room for bottom job bar
+                            // ★ bottom job bar + safe area 分の余白を増やす
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 92),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -242,12 +243,12 @@ class _EagleEyeHomeState extends State<EagleEyeHome> {
                                   selectedJobKey: _selectedJobKey,
                                 ),
                                 const SizedBox(height: 16),
-                                _HintRow(
+                                const _HintRow(
                                   icon: Icons.swipe,
                                   text: '左右にスワイプで 今日〜明後日',
                                 ),
                                 const SizedBox(height: 8),
-                                _HintRow(
+                                const _HintRow(
                                   icon: Icons.calendar_month,
                                   text: '4日目以降はカレンダーから',
                                 ),
@@ -819,7 +820,6 @@ class _TopPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         _Pill(text: left, strong: true),
@@ -1085,25 +1085,28 @@ class JobSelectorBar extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        decoration: BoxDecoration(
-          color: bg.withOpacity(0.92),
-          border: Border(top: BorderSide(color: border)),
-        ),
-        child: Row(
-          children: [
-            for (final k in JobKeys.all) ...[
-              Expanded(
-                child: _JobTab(
-                  label: JobKeys.shortLabel(k),
-                  isActive: k == selectedJobKey,
-                  onTap: () => onChanged(k),
+      child: SizedBox(
+        height: 74, // ★固定（暴走防止）
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+          decoration: BoxDecoration(
+            color: bg.withOpacity(0.92),
+            border: Border(top: BorderSide(color: border)),
+          ),
+          child: Row(
+            children: [
+              for (final k in JobKeys.all) ...[
+                Expanded(
+                  child: _JobTab(
+                    label: JobKeys.shortLabel(k),
+                    isActive: k == selectedJobKey,
+                    onTap: () => onChanged(k),
+                  ),
                 ),
-              ),
-              if (k != JobKeys.all.last) const SizedBox(width: 8),
+                if (k != JobKeys.all.last) const SizedBox(width: 8),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1129,23 +1132,25 @@ class _JobTab extends StatelessWidget {
     final border = active ? Colors.white.withOpacity(0.22) : Colors.white.withOpacity(0.12);
     final textColor = active ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.75);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: border),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-              color: textColor,
-              fontSize: 12,
+    return SizedBox(
+      height: 46, // ★固定（縦伸び防止）
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                color: textColor,
+                fontSize: 12,
+              ),
             ),
           ),
         ),
