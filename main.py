@@ -1,7 +1,8 @@
 # main.py
 # Eagle Eye - assets/eagle_eye_data.json generator
 # - 5 jobs only: taxi, delivery, restaurant, retail, hotel
-# - Writes assets/eagle_eye_data.json
+# - Writes assets/eagle_eye_data.json (FREE)
+# - Writes assets/eagle_eye_data_paid.json.gz (PAID) if enabled
 # - Robust: still generates output even if Gemini/Open-Meteo/JMA fails
 #
 # 2026-01 patch:
@@ -10,12 +11,18 @@
 # - Venue list injected for better evidence
 # - rank_reasons / rank_drivers / evidence_level added
 # - Safety valve: low confidence => never S
+#
+# 2026-01 monetization patch:
+# - FREE JSON: first FREE_DAYS only (default 2) -> assets/eagle_eye_data.json
+# - PAID JSON: first PAID_DAYS only (default 7) -> assets/eagle_eye_data_paid.json.gz
+# - Paid file should NOT be committed; upload to private storage instead
 
 import os
 import json
 import time
 import re
 import urllib.request
+import gzip
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -29,12 +36,23 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 JST = timezone(timedelta(hours=9), "JST")
 
-RUN_DAYS = int(os.environ.get("RUN_DAYS", "90"))  # total days to output
-AI_DAYS = int(os.environ.get("AI_DAYS", "7"))     # first N days try AI output
+# Monetization days
+FREE_DAYS = int(os.environ.get("FREE_DAYS", "2"))     # Free plan: bundled in app assets
+PAID_DAYS = int(os.environ.get("PAID_DAYS", "7"))     # Paid plan: served from server (7 or 14)
+RUN_DAYS = int(os.environ.get("RUN_DAYS", str(max(FREE_DAYS, PAID_DAYS))))  # internal generation days
+
+AI_DAYS = int(os.environ.get("AI_DAYS", "7"))     # first N days try AI output (cost control)
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "4"))  # keep modest for CI
 
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "assets", "eagle_eye_data.json")
+BASE_DIR = os.path.dirname(__file__)
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+OUTPUT_PATH_FREE = os.path.join(ASSETS_DIR, "eagle_eye_data.json")
+OUTPUT_PATH_PAID_JSON = os.path.join(ASSETS_DIR, "eagle_eye_data_paid.json")
+OUTPUT_PATH_PAID_GZ = os.path.join(ASSETS_DIR, "eagle_eye_data_paid.json.gz")
+
+WRITE_PAID = os.environ.get("WRITE_PAID", "1").strip() != "0"
+GZIP_PAID = os.environ.get("GZIP_PAID", "1").strip() != "0"
 
 # Choose area set:
 # - "major" (default): major cities + Hakodate
@@ -257,67 +275,6 @@ def normalize_high_low_from_timeline(day_obj: dict) -> None:
         day_obj.setdefault("weather_overview", {})
         day_obj["weather_overview"]["high"] = f"最高{max(highs)}℃"
         day_obj["weather_overview"]["low"]  = f"最低{min(lows)}℃"
-
-# =========================
-# 2.4 patch: harmonize narrative temps to match weather_overview (ALL days)
-# =========================
-def _parse_int_from_str(s: str):
-    try:
-        m = re.search(r"-?\d+", str(s))
-        return int(m.group(0)) if m else None
-    except Exception:
-        return None
-
-def harmonize_weather_narrative(day_obj: dict) -> None:
-    """
-    Ensure narrative text (daily_schedule_and_impact / rank reasons/drivers)
-    does not contradict weather_overview high/low.
-    Minimal, safe regex replace only for temperature phrases.
-    """
-    if not isinstance(day_obj, dict):
-        return
-    wo = day_obj.get("weather_overview") or {}
-    hi = _parse_int_from_str(wo.get("high"))
-    lo = _parse_int_from_str(wo.get("low"))
-    if hi is None or lo is None:
-        return
-
-    def _fix_text(txt: str) -> str:
-        if not txt:
-            return txt
-        t = str(txt)
-
-        # Highest/lowest temperature
-        t = re.sub(r"最高気温\s*-?\d+℃", f"最高気温{hi}℃", t)
-        t = re.sub(r"最低気温\s*-?\d+℃", f"最低気温{lo}℃", t)
-
-        # Generic "最高/最低"
-        t = re.sub(r"最高\s*-?\d+℃", f"最高{hi}℃", t)
-        t = re.sub(r"最低\s*-?\d+℃", f"最低{lo}℃", t)
-
-        # Optional: wording fix for precipitation label only when used as a label
-        t = t.replace("降水見込み", "降水確率")
-        return t
-
-    # daily report
-    if "daily_schedule_and_impact" in day_obj:
-        day_obj["daily_schedule_and_impact"] = _fix_text(day_obj.get("daily_schedule_and_impact", ""))
-
-    # rank reasons
-    rr = day_obj.get("rank_reasons")
-    if isinstance(rr, list):
-        day_obj["rank_reasons"] = [_fix_text(x) for x in rr]
-
-    # rank drivers
-    rd = day_obj.get("rank_drivers")
-    if isinstance(rd, dict):
-        pos = rd.get("positive")
-        neg = rd.get("negative")
-        if isinstance(pos, list):
-            rd["positive"] = [_fix_text(x) for x in pos]
-        if isinstance(neg, list):
-            rd["negative"] = [_fix_text(x) for x in neg]
-        day_obj["rank_drivers"] = rd
 
 # =========================
 # JMA / AMeDAS
@@ -1239,15 +1196,11 @@ def generate_ai_day(area_key: str, area_data, target_dt: datetime, jma_day_data,
         auto = []
         if facts_fallback:
             auto.append(f"観測材料: {facts_fallback[0]}")
-        # weather: use slot rain and warning
         if warning_text and warning_text != "特になし":
             auto.append(f"警報注意報: {warning_text}")
         if rain_am != "-" or rain_pm != "-" or rain_ng != "-":
-            auto.append(f"降水確率: 午前{rain_am}/午後{rain_pm}/夜{rain_ng}")
+            auto.append(f"降水見込み: 午前{rain_am}/午後{rain_pm}/夜{rain_ng}")
         j["rank_reasons"] = auto[:5]
-
-    # ---- 追加: narrative も weather_overview に合わせて整合 ----
-    harmonize_weather_narrative(j)
 
     return j
 
@@ -1301,14 +1254,25 @@ def process_single_area(item):
     return area_key, area_forecasts
 
 # =========================
+# Write helpers
+# =========================
+def write_json(path: str, obj: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2)
+
+def write_gzip(path_gz: str, text: str):
+    with gzip.open(path_gz, "wb") as f:
+        f.write(text.encode("utf-8"))
+
+# =========================
 # Main
 # =========================
 def main():
     today = datetime.now(JST)
-    print(f"🦅 Eagle Eye (assets writer) 起動: {today.strftime('%Y/%m/%d %H:%M')} / AREA_SET={AREA_SET} / areas={len(TARGET_AREAS)}", flush=True)
+    print(f"🦅 Eagle Eye 起動: {today.strftime('%Y/%m/%d %H:%M')} / AREA_SET={AREA_SET} / areas={len(TARGET_AREAS)}", flush=True)
+    print(f"📦 DAYS: FREE_DAYS={FREE_DAYS} / PAID_DAYS={PAID_DAYS} / RUN_DAYS={RUN_DAYS} / AI_DAYS={AI_DAYS}", flush=True)
 
-    out_dir = os.path.dirname(OUTPUT_PATH)
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(ASSETS_DIR, exist_ok=True)
 
     master_data = {}
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
@@ -1320,10 +1284,23 @@ def main():
             except Exception as e:
                 print(f"Err: {e}", flush=True)
 
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(master_data, f, ensure_ascii=False, indent=2)
+    # Build FREE/Paid subsets (avoid changing app-side loader for free)
+    free_data = {k: (v[:FREE_DAYS] if isinstance(v, list) else []) for k, v in master_data.items()}
+    paid_data = {k: (v[:PAID_DAYS] if isinstance(v, list) else []) for k, v in master_data.items()}
 
-    print(f"\n✅ 保存完了: {OUTPUT_PATH}", flush=True)
+    # Write FREE json -> assets/eagle_eye_data.json
+    write_json(OUTPUT_PATH_FREE, free_data)
+    print(f"✅ FREE 保存: {OUTPUT_PATH_FREE}", flush=True)
+
+    # Write PAID json (json + gz)
+    if WRITE_PAID:
+        paid_text = json.dumps(paid_data, ensure_ascii=False, indent=2)
+        write_json(OUTPUT_PATH_PAID_JSON, paid_data)
+        print(f"✅ PAID 保存: {OUTPUT_PATH_PAID_JSON}", flush=True)
+        if GZIP_PAID:
+            write_gzip(OUTPUT_PATH_PAID_GZ, paid_text)
+            print(f"✅ PAID(GZ) 保存: {OUTPUT_PATH_PAID_GZ}", flush=True)
+
     print("✅ 全工程完了", flush=True)
 
 if __name__ == "__main__":
