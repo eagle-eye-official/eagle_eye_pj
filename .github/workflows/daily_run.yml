@@ -3,7 +3,7 @@ name: Eagle Eye Daily Forecast
 on:
   schedule:
     # 日本時間 朝5:05 (UTC 20:05)
-    - cron: '5 20 * * *'
+    - cron:
   workflow_dispatch:
 
 permissions:
